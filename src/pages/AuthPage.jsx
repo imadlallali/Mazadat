@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -104,7 +102,7 @@ function LoginForm() {
           <Checkbox
             id="remember"
             checked={rememberMe}
-            onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+            onCheckedChange={(checked) => setRememberMe(checked)}
             className="border-[#C5E0DC] data-[state=checked]:border-[#2A9D8F] data-[state=checked]:bg-[#2A9D8F]"
           />
           <Label
@@ -135,7 +133,7 @@ function LoginForm() {
 function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [role, setRole] = useState<"buyer" | "seller">("buyer");
+  const [role, setRole] = useState("buyer");
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   return (
@@ -263,7 +261,7 @@ function RegisterForm() {
         <Checkbox
           id="terms"
           checked={termsAccepted}
-          onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+          onCheckedChange={(checked) => setTermsAccepted(checked)}
           className="mt-0.5 border-[#C5E0DC] data-[state=checked]:border-[#2A9D8F] data-[state=checked]:bg-[#2A9D8F]"
         />
         <Label
