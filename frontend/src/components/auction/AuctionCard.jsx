@@ -1,28 +1,49 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Trash2, CheckSquare } from 'lucide-react';
+import { User } from 'lucide-react';
 import CountdownTimer from './CountdownTimer';
+import { placeBid } from '@/services/bidService';
 import { deleteAuction } from '@/services/auctionService';
-import { generateReceipt } from '@/services/receiptService';
+import { resolveImageUrl } from '@/services/imageService';
 
 export default function AuctionCard({ auction, currentUser, onActionComplete }) {
     const { t, i18n } = useTranslation('common');
     const [loading, setLoading] = useState(false);
     const isAr = i18n.language === 'ar';
 
+    const isBuyer = currentUser?.role === 'BUYER';
     const isSeller = currentUser?.role === 'SELLER';
-    const isOwner = isSeller && auction?.sellerId === currentUser?.id;
-    const hasNoBids = !auction?.bids || auction.bids.length === 0;
     const isActive = auction?.status === 'ACTIVE';
     const isPending = auction?.status === 'PENDING';
-    const isEnded = auction?.status === 'ENDED';
+    const canBid = isBuyer && isActive;
+    const currentPrice = Number(auction?.currentPrice);
+    const startingPrice = Number(auction?.startingPrice);
+    const hasBids = Number.isFinite(auction?.bidCount)
+        ? auction.bidCount > 0
+        : (Number.isFinite(currentPrice) && Number.isFinite(startingPrice)
+            ? currentPrice > startingPrice
+            : !!currentPrice);
+    const canCancel = isSeller && (isActive || isPending) && !hasBids;
 
-    const handleCancel = async () => {
-        if (!window.confirm(t('cancelAuctionConfirm'))) return;
+    const handlePlaceBid = async () => {
+        const bidValue = window.prompt(isAr ? 'أدخل قيمة المزايدة' : 'Enter your bid amount');
+        if (!bidValue) return;
+
+        const amount = Number(bidValue);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            alert(isAr ? 'قيمة غير صحيحة' : 'Invalid bid amount');
+            return;
+        }
+
+        if (auction?.currentPrice && amount <= auction.currentPrice) {
+            alert(isAr ? 'يجب أن تكون المزايدة أعلى من السعر الحالي' : 'Bid must be higher than current price');
+            return;
+        }
+
         setLoading(true);
         try {
-            await deleteAuction(auction.id, currentUser.id);
-            onActionComplete?.('cancel');
+            await placeBid(auction.id, amount);
+            onActionComplete?.('bid');
         } catch {
             alert(t('actionFailed'));
         } finally {
@@ -30,12 +51,14 @@ export default function AuctionCard({ auction, currentUser, onActionComplete }) 
         }
     };
 
-    const handleMarkAsSold = async () => {
-        if (!window.confirm(t('markAsSoldConfirm'))) return;
+    const handleCancelAuction = async () => {
+        const confirmText = t('cancelAuctionConfirm');
+        if (!window.confirm(confirmText)) return;
+
         setLoading(true);
         try {
-            await generateReceipt(auction.id, currentUser.id);
-            onActionComplete?.('sold');
+            await deleteAuction(auction.id);
+            onActionComplete?.('cancel');
         } catch {
             alert(t('actionFailed'));
         } finally {
@@ -56,23 +79,8 @@ export default function AuctionCard({ auction, currentUser, onActionComplete }) 
                         {auction?.sellerName || (isAr ? 'بائع' : 'Seller')}
                     </h3>
                     <p className="text-xs text-[#6B9E99]">
-                        {auction?.auctionHouseName || (isAr ? 'مزاد مستقل' : 'Independent Auction')}
+                        {isAr ? 'مزاد' : 'Auction'}
                     </p>
-                </div>
-
-                {/* Status Badge */}
-                <div className="mr-auto rtl:mr-auto ltr:ml-auto">
-          <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-              isActive ? 'bg-[#EAF7F5] text-[#2A9D8F]' :
-                  isPending ? 'bg-yellow-50 text-yellow-600' :
-                      isEnded ? 'bg-gray-100 text-gray-500' :
-                          'bg-gray-100 text-gray-500'
-          }`}>
-            {isActive ? (isAr ? 'نشط' : 'Active') :
-                isPending ? (isAr ? 'قادم' : 'Pending') :
-                    isEnded ? (isAr ? 'منتهي' : 'Ended') :
-                        auction?.status}
-          </span>
                 </div>
             </div>
 
@@ -87,7 +95,7 @@ export default function AuctionCard({ auction, currentUser, onActionComplete }) 
             {/* Image */}
             {auction?.images?.length > 0 ? (
                 <img
-                    src={auction.images[0].url}
+                    src={resolveImageUrl(auction.images[0].url)}
                     alt={auction.title}
                     className="w-full h-72 object-cover border-y border-gray-100"
                 />
@@ -120,33 +128,21 @@ export default function AuctionCard({ auction, currentUser, onActionComplete }) 
                 </div>
 
                 <div className="flex gap-2">
-                    {/* Cancel button — owner, no bids, active or pending */}
-                    {isOwner && hasNoBids && (isActive || isPending) && (
+                    {canCancel && (
                         <button
-                            onClick={handleCancel}
+                            onClick={handleCancelAuction}
                             disabled={loading}
-                            className="flex items-center gap-1 bg-white border border-[#E05252] text-[#E05252] hover:bg-[#E05252] hover:text-white px-4 py-2 rounded-lg font-bold transition-colors text-sm disabled:opacity-50"
+                            className="bg-white border border-[#E05252] text-[#E05252] hover:bg-[#E05252] hover:text-white px-6 py-2 rounded-lg font-bold transition-colors text-sm disabled:opacity-50"
                         >
-                            <Trash2 className="w-4 h-4" />
                             {t('cancelAuction')}
                         </button>
                     )}
-
-                    {/* Mark as Sold — owner, auction ended, has bids */}
-                    {isOwner && isEnded && !hasNoBids && (
+                    {canBid && (
                         <button
-                            onClick={handleMarkAsSold}
+                            onClick={handlePlaceBid}
                             disabled={loading}
-                            className="flex items-center gap-1 bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-4 py-2 rounded-lg font-bold transition-colors text-sm disabled:opacity-50"
+                            className="bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-6 py-2 rounded-lg font-bold transition-colors text-sm disabled:opacity-50"
                         >
-                            <CheckSquare className="w-4 h-4" />
-                            {t('markAsSold')}
-                        </button>
-                    )}
-
-                    {/* Place Bid — buyers only, active auction */}
-                    {!isSeller && isActive && (
-                        <button className="bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-6 py-2 rounded-lg font-bold transition-colors text-sm">
                             {t('placeBid')}
                         </button>
                     )}

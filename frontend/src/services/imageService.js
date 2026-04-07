@@ -17,7 +17,7 @@ export async function uploadImages(auctionId, images) {
         formData.append('files', img.file);
     });
 
-    const response = await fetch(`${BASE_URL}/image/upload/${auctionId}`, {
+    const response = await fetch(`${BASE_URL}/api/v1/auction/${auctionId}/images`, {
         method: 'POST',
         headers: {
             ...getAuthHeader(),
@@ -27,4 +27,12 @@ export async function uploadImages(auctionId, images) {
 
     if (!response.ok) throw new Error('Failed to upload images');
     return response;
+}
+
+export function resolveImageUrl(imageUrl) {
+    if (!imageUrl) return '';
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        return imageUrl;
+    }
+    return `${BASE_URL}${imageUrl}`;
 }

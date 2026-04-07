@@ -1,28 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown } from 'lucide-react';
-import { getAllAuctionHouses } from '@/services/auctionHouseService';
 
 export default function AuctionDetailsStep({ formData, setFormData, onNext }) {
   const { t } = useTranslation('createAuction');
   const [errors, setErrors] = useState({});
-  const [auctionHouses, setAuctionHouses] = useState([]);
-  const [loadingHouses, setLoadingHouses] = useState(true);
-
-  useEffect(() => {
-    const fetchHouses = async () => {
-      setLoadingHouses(true);
-      try {
-        const data = await getAllAuctionHouses();
-        setAuctionHouses(data || []);
-      } catch {
-        setAuctionHouses([]);
-      } finally {
-        setLoadingHouses(false);
-      }
-    };
-    fetchHouses();
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -99,34 +80,6 @@ export default function AuctionDetailsStep({ formData, setFormData, onNext }) {
             <span className="text-xs text-[#6B9E99]" dir="ltr">
             {displayCount(formData.description.length, 1000)}
           </span>
-          </div>
-        </div>
-
-        {/* Auction House */}
-        <div className="relative">
-          <label className="block mb-2 font-semibold text-[#1A2E2C]">
-            {t('auctionHouseLabel')}
-          </label>
-          <div className="relative">
-            <select
-                name="auctionHouseId"
-                value={formData.auctionHouseId || ''}
-                onChange={handleChange}
-                disabled={loadingHouses}
-                className="w-full appearance-none rounded-lg border border-[#C5E0DC] bg-white px-4 py-3 pr-10 rtl:pr-4 rtl:pl-10 focus:ring-2 focus:ring-[#2A9D8F] focus:outline-none transition-shadow disabled:opacity-60"
-            >
-              <option value="">
-                {loadingHouses
-                    ? (t('loading') || '...')
-                    : t('auctionHouseNone')}
-              </option>
-              {auctionHouses.map((house) => (
-                  <option key={house.id} value={house.id}>
-                    {house.name} {house.location ? `- ${house.location}` : ''}
-                  </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute top-1/2 -translate-y-1/2 rtl:left-3 ltr:right-3 w-5 h-5 text-[#6B9E99] pointer-events-none" />
           </div>
         </div>
 

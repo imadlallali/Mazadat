@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'http://localhost:8080/api/v1';
 
 function getAuthHeader() {
     try {
@@ -12,26 +12,39 @@ function getAuthHeader() {
 }
 
 async function request(method, path, body = null) {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
     const headers = {
-        'Content-Type': 'application/json',
         ...getAuthHeader(),
     };
+
+    if (body && !isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     const options = {
         method,
         headers,
-        ...(body ? { body: JSON.stringify(body) } : {}),
+        ...(body
+            ? { body: isFormData ? body : JSON.stringify(body) }
+            : {}),
     };
 
     const response = await fetch(`${BASE_URL}${path}`, options);
 
     if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Request failed');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Request failed');
     }
 
     const text = await response.text();
-    return text ? JSON.parse(text) : null;
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
 }
 
 export const api = {

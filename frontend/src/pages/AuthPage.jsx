@@ -57,6 +57,7 @@ function LoginForm() {
   const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState('BUYER');
   const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [error, setError] = useState(null);
@@ -75,7 +76,7 @@ function LoginForm() {
     }
     setLoading(true);
     try {
-      await login(formData.username, formData.password);
+      await login(formData.username, formData.password, role);
       navigate('/');
     } catch {
       setError(t('loginFailed'));
@@ -150,6 +151,34 @@ function LoginForm() {
           </a>
         </div>
 
+        <div className="flex flex-col gap-3">
+          <Label className="text-[#1A2E2C] rtl:text-right ltr:text-left">{t('accountType')}</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+                type="button"
+                onClick={() => setRole('BUYER')}
+                className={`rounded-xl border-2 p-3 text-sm font-semibold transition-all ${
+                    role === 'BUYER'
+                        ? 'border-[#2A9D8F] bg-[#EAF7F5] text-[#2A9D8F]'
+                        : 'border-[#C5E0DC] bg-white text-[#6B9E99] hover:bg-[#F4FAFA]'
+                }`}
+            >
+              {t('buyer')}
+            </button>
+            <button
+                type="button"
+                onClick={() => setRole('SELLER')}
+                className={`rounded-xl border-2 p-3 text-sm font-semibold transition-all ${
+                    role === 'SELLER'
+                        ? 'border-[#2A9D8F] bg-[#EAF7F5] text-[#2A9D8F]'
+                        : 'border-[#C5E0DC] bg-white text-[#6B9E99] hover:bg-[#F4FAFA]'
+                }`}
+            >
+              {t('seller')}
+            </button>
+          </div>
+        </div>
+
         <Button
             type="submit"
             disabled={loading}
@@ -214,7 +243,8 @@ function RegisterForm() {
           bankAccount: formData.bankAccount,
         });
       }
-      navigate('/auth');
+      await login(formData.username, formData.password, role === 'buyer' ? 'BUYER' : 'SELLER');
+      navigate('/');
     } catch {
       setError(t('registerFailed'));
     } finally {

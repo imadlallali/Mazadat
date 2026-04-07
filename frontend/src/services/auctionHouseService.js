@@ -1,3 +1,3 @@
 import { api } from './apiClient';
 
-export const getAllAuctionHouses = () => api.get('/auctionHouse/all');
+export const getAllAuctionHouses = () => api.get('/auctionhouse/get/all');

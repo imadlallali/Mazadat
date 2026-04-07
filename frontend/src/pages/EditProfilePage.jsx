@@ -49,29 +49,39 @@ export default function EditProfilePage() {
     };
 
     const handleSubmit = async () => {
+        const isSeller = user?.role === 'SELLER';
         const newErrors = validate();
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
             return;
         }
 
+        if (isSeller && !formData.password.trim()) {
+            setErrors({ password: t('requiredField') });
+            return;
+        }
+
         setLoading(true);
         try {
-            const isSeller = user?.role === 'SELLER';
             const payload = {
                 username: formData.username,
                 email: formData.email,
-                password: formData.password || user?.password,
+                ...(formData.password ? { password: formData.password } : {}),
                 ...(isSeller && { bankAccount: formData.bankAccount }),
             };
 
             if (isSeller) {
-                await updateSellerProfile(user.id, payload);
+                await updateSellerProfile(payload);
             } else {
-                await updateBuyerProfile(user.id, payload);
+                await updateBuyerProfile(payload);
             }
 
-            const updated = { ...user, username: formData.username, email: formData.email };
+            const updated = {
+                ...user,
+                username: formData.username,
+                email: formData.email,
+                ...(isSeller ? { bankAccount: formData.bankAccount } : {}),
+            };
             localStorage.setItem('user', JSON.stringify(updated));
             setSuccess(true);
         } catch {
@@ -151,7 +161,7 @@ export default function EditProfilePage() {
                     {/* New Password */}
                     <div>
                         <label className="block mb-2 font-semibold text-[#1A2E2C] text-sm">
-                            {t('newPassword')}
+                            {t('newPassword')}{isSeller ? ' *' : ''}
                         </label>
                         <input
                             type="password"

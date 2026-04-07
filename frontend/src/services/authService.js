@@ -1,33 +1,34 @@
 import { api } from './apiClient';
 
-export const registerBuyer = (data) => api.post('/buyer/register', data);
-export const registerSeller = (data) => api.post('/seller/register', data);
+export const registerBuyer = (data) => api.post('/buyer/add', data);
+export const registerSeller = (data) => api.post('/seller/add', data);
 
-export const login = async (username, password) => {
+const BASE_URL = 'http://localhost:8080/api/v1';
+
+async function verifyCredentials(token) {
+    const response = await fetch(`${BASE_URL}/auth/ping`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Basic ${token}`,
+        },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+        throw new Error('Invalid credentials');
+    }
+}
+
+export const login = async (username, password, role = 'BUYER') => {
     const token = btoa(`${username}:${password}`);
 
-    // Store token temporarily so apiClient can use it for the next call
-    const tempUser = { token };
-    localStorage.setItem('user', JSON.stringify(tempUser));
+    await verifyCredentials(token);
 
-    try {
-        // Fetch all users and find the matching one to get id and role
-        const users = await api.get('/user/all');
-        const match = users?.find(u => u.username === username);
+    const user = {
+        username,
+        role,
+        token,
+    };
 
-        if (!match) throw new Error('User not found');
-
-        const user = {
-            id: match.id,
-            username: match.username,
-            role: match.role,
-            token,
-        };
-
-        localStorage.setItem('user', JSON.stringify(user));
-        return user;
-    } catch {
-        localStorage.removeItem('user');
-        throw new Error('Login failed');
-    }
+    localStorage.setItem('user', JSON.stringify(user));
+    return user;
 };

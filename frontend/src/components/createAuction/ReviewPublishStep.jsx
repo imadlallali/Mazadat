@@ -2,18 +2,9 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Edit2 } from 'lucide-react';
 
-const mockAuctionHouses = [
-  { id: '1', name: 'دار المزادات الملكية', location: 'الرياض' },
-  { id: '2', name: 'مزادات الخليج', location: 'جدة' },
-  { id: '3', name: 'بيت المزادات الدولي', location: 'الدمام' }
-];
-
 export default function ReviewPublishStep({ formData, onBack, onPublish, setStep, loading }) {
   const { t, i18n } = useTranslation('createAuction');
   const [descExpanded, setDescExpanded] = useState(false);
-
-  const house = mockAuctionHouses.find(h => h.id === formData.auctionHouseId);
-  const houseDisplay = house ? `${house.name} - ${house.location}` : '—';
 
   const formatDateTime = (isoString) => {
     if (!isoString) return '—';
@@ -69,10 +60,6 @@ export default function ReviewPublishStep({ formData, onBack, onPublish, setStep
                   )}
                 </div>
               </div>
-              <div>
-                <span className="text-[#6B9E99] block mb-1">{t('auctionHouseLabel')}</span>
-                <p className="font-medium">{houseDisplay}</p>
-              </div>
             </div>
           </div>
 
@@ -106,7 +93,7 @@ export default function ReviewPublishStep({ formData, onBack, onPublish, setStep
           {/* Step 3 Review */}
           <div>
             <SectionHeader title={t('step3Title')} stepIndex={3} />
-            <div className="grid grid-cols-2 gap-4 text-sm text-[#1A2E2C]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#1A2E2C]">
               <div>
                 <span className="text-[#6B9E99] block mb-1">{t('startingPriceLabel')}</span>
                 <p className="font-bold text-[#2A9D8F]" dir="ltr">
@@ -117,8 +104,8 @@ export default function ReviewPublishStep({ formData, onBack, onPublish, setStep
                 <span className="text-[#6B9E99] block mb-1">{t('reservePriceLabel')}</span>
                 <p className="font-bold text-[#2A9D8F]" dir="ltr">
                   {formData.reservePrice
-                      ? <>{formData.reservePrice} <span className="text-gray-500">﷼</span></>
-                      : '—'}
+                    ? <>{formData.reservePrice} <span className="text-gray-500">﷼</span></>
+                    : '—'}
                 </p>
               </div>
               <div>

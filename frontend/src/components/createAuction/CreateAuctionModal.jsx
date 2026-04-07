@@ -8,7 +8,7 @@ import AuctionDetailsStep from './AuctionDetailsStep';
 import ProductImagesStep from './ProductImagesStep';
 import PricingScheduleStep from './PricingScheduleStep';
 import ReviewPublishStep from './ReviewPublishStep';
-import { createAuction } from '@/services/auctionService';
+import { createAuction, getAllAuctions } from '@/services/auctionService';
 import { uploadImages } from '@/services/imageService';
 
 export default function CreateAuctionModal({ open, onOpenChange }) {
@@ -22,7 +22,6 @@ export default function CreateAuctionModal({ open, onOpenChange }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    auctionHouseId: null,
     images: [],
     startingPrice: '',
     reservePrice: '',
@@ -36,7 +35,6 @@ export default function CreateAuctionModal({ open, onOpenChange }) {
       setFormData({
         title: '',
         description: '',
-        auctionHouseId: null,
         images: [],
         startingPrice: '',
         reservePrice: '',
@@ -56,25 +54,42 @@ export default function CreateAuctionModal({ open, onOpenChange }) {
     setLoading(true);
     setError(null);
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const sellerId = user?.id;
-
-      if (!sellerId) throw new Error('User not found');
+      const beforeAuctions = await getAllAuctions();
+      const beforeIds = new Set((beforeAuctions || []).map((auction) => auction.id));
 
       const auctionPayload = {
         title: formData.title,
         description: formData.description,
         startingPrice: parseFloat(formData.startingPrice),
-        reservePrice: formData.reservePrice ? parseFloat(formData.reservePrice) : null,
         startDate: formData.startDate,
         endDate: formData.endDate,
-        auctionHouseId: formData.auctionHouseId || null,
+        ...(formData.reservePrice ? { reservePrice: parseFloat(formData.reservePrice) } : {}),
       };
 
-      const createdAuction = await createAuction(sellerId, auctionPayload);
+      const createResult = await createAuction(auctionPayload);
+      const createdAuctionId =
+          createResult?.id
+          ?? createResult?.auctionId
+          ?? createResult?.data?.id
+          ?? createResult?.data?.auctionId;
 
-      if (formData.images.length > 0 && createdAuction?.id) {
-        await uploadImages(createdAuction.id, formData.images);
+      let targetAuctionId = createdAuctionId;
+
+      if (!targetAuctionId) {
+        const afterAuctions = await getAllAuctions();
+        const createdAuction = (afterAuctions || [])
+            .filter((auction) => !beforeIds.has(auction.id))
+            .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0]
+          || (afterAuctions || []).find((auction) =>
+              auction.title === formData.title
+              && auction.description === formData.description
+              && Number(auction.startingPrice) === Number(formData.startingPrice)
+          );
+        targetAuctionId = createdAuction?.id;
+      }
+
+      if (formData.images.length > 0 && targetAuctionId) {
+        await uploadImages(targetAuctionId, formData.images);
       }
 
       setIsPublished(true);
