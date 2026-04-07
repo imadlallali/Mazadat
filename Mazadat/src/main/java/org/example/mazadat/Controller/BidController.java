@@ -23,6 +23,16 @@ public class BidController {
         return ResponseEntity.status(HttpStatus.OK.value()).body(bidService.getAllBids());
     }
 
+    @GetMapping("/buyer/my-bids")
+    public ResponseEntity<?> getMyBids(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(HttpStatus.OK.value()).body(bidService.getBuyerBids(user.getId()));
+    }
+
+    @GetMapping("/buyer/won-bids")
+    public ResponseEntity<?> getWonBids(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(HttpStatus.OK.value()).body(bidService.getWonBids(user.getId()));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addBid(@Valid @RequestBody BidDTOIN bidDTOIN, @AuthenticationPrincipal User user){
         bidService.addBid(bidDTOIN, user.getId());

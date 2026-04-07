@@ -11,11 +11,13 @@ function getAuthHeader() {
     }
 }
 
-async function request(method, path, body = null) {
+async function request(method, path, body = null, config = {}) {
+    const { responseType = 'json' } = config;
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
 
     const headers = {
         ...getAuthHeader(),
+        ...(config.headers || {}),
     };
 
     if (body && !isFormData) {
@@ -25,16 +27,37 @@ async function request(method, path, body = null) {
     const options = {
         method,
         headers,
-        ...(body
-            ? { body: isFormData ? body : JSON.stringify(body) }
-            : {}),
+        ...(body ? { body: isFormData ? body : JSON.stringify(body) } : {}),
     };
 
     const response = await fetch(`${BASE_URL}${path}`, options);
 
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Request failed');
+        let errorMessage = 'Request failed';
+        try {
+            const errorText = await response.text();
+            if (errorText) {
+                try {
+                    const parsed = JSON.parse(errorText);
+                    errorMessage = parsed?.message || errorText;
+                } catch {
+                    errorMessage = errorText;
+                }
+            }
+        } catch {
+            // Keep fallback message
+        }
+        throw new Error(errorMessage);
+    }
+
+    if (responseType === 'blob') {
+        return response.blob();
+    }
+    if (responseType === 'arrayBuffer') {
+        return response.arrayBuffer();
+    }
+    if (responseType === 'text') {
+        return response.text();
     }
 
     const text = await response.text();
@@ -48,8 +71,8 @@ async function request(method, path, body = null) {
 }
 
 export const api = {
-    get: (path) => request('GET', path),
-    post: (path, body) => request('POST', path, body),
-    put: (path, body) => request('PUT', path, body),
-    delete: (path) => request('DELETE', path),
+    get: (path, config) => request('GET', path, null, config),
+    post: (path, body, config) => request('POST', path, body, config),
+    put: (path, body, config) => request('PUT', path, body, config),
+    delete: (path, config) => request('DELETE', path, null, config),
 };

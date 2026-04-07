@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.mazadat.Api.ApiResponse;
 import org.example.mazadat.DTOIN.SellerDTOIN;
+import org.example.mazadat.DTOIN.SellerUpdateDTOIN;
 import org.example.mazadat.Model.User;
 import org.example.mazadat.Service.SellerService;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,11 @@ public class SellerController {
         return ResponseEntity.status(HttpStatus.OK.value()).body(sellerService.getAllSellers());
     }
 
+    @GetMapping("/current")
+    public ResponseEntity<?> getCurrentSeller(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(HttpStatus.OK.value()).body(sellerService.getCurrentSeller(user.getId()));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addSeller(@Valid @RequestBody SellerDTOIN sellerDTOIN){
         sellerService.addSeller(sellerDTOIN);
@@ -30,7 +36,7 @@ public class SellerController {
     }
 
     @PutMapping("/update")
-    public ResponseEntity<?> updateSeller(@Valid @RequestBody SellerDTOIN sellerDTOIN, @AuthenticationPrincipal User user){
+    public ResponseEntity<?> updateSeller(@Valid @RequestBody SellerUpdateDTOIN sellerDTOIN, @AuthenticationPrincipal User user){
         sellerService.updateSeller(sellerDTOIN, user.getId());
         return ResponseEntity.status(HttpStatus.OK.value()).body(new ApiResponse("Seller updated successfully"));
     }
@@ -38,6 +44,12 @@ public class SellerController {
     @DeleteMapping("/delete")
     public ResponseEntity<?> deleteSeller(@AuthenticationPrincipal User user){
         sellerService.deleteSeller(user.getId());
+        return ResponseEntity.status(HttpStatus.OK.value()).body(new ApiResponse("Seller deleted successfully"));
+    }
+
+    @DeleteMapping("/delete/{sellerId}")
+    public ResponseEntity<?> deleteSellerById(@PathVariable Integer sellerId, @AuthenticationPrincipal User user) {
+        sellerService.deleteSellerByAuthorized(user, sellerId);
         return ResponseEntity.status(HttpStatus.OK.value()).body(new ApiResponse("Seller deleted successfully"));
     }
 }

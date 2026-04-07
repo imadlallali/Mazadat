@@ -2,6 +2,7 @@ package org.example.mazadat.Service;
 
 import lombok.RequiredArgsConstructor;
 import org.example.mazadat.Api.ApiException;
+import org.example.mazadat.DTOOUT.UserProfileDTO;
 import org.example.mazadat.DTOOUT.UserDTOOUT;
 import org.example.mazadat.Model.User;
 import org.example.mazadat.Repository.UserRepository;
@@ -33,6 +34,20 @@ public class UserService {
             throw new ApiException("User array is empty");
         }
         return userDTOOUTS;
+    }
+
+    public UserProfileDTO getCurrentUserProfile(Integer userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            throw new ApiException("User not found");
+        }
+        return new UserProfileDTO(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getPhoneNumber(),
+                user.getRole()
+        );
     }
 
 

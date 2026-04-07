@@ -11,6 +11,7 @@ import org.example.mazadat.Repository.SellerRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -24,10 +25,23 @@ public class AuctionService {
 
     public List<Auction> getAllAuctions(){
         List<Auction> auctions = auctionRepository.findAll();
-        if (auctions.isEmpty()){
-            throw new ApiException("Auction array is empty");
+        boolean hasUpdates = false;
+        for (Auction auction : auctions) {
+            hasUpdates = refreshAuctionOutcome(auction) || hasUpdates;
+        }
+        if (hasUpdates) {
+            auctionRepository.saveAll(auctions);
         }
         return auctions;
+    }
+
+    public Auction getAuctionById(Integer auctionId) {
+        Auction auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ApiException("Auction not found"));
+        if (refreshAuctionOutcome(auction)) {
+            auctionRepository.save(auction);
+        }
+        return auction;
     }
 
     @Transactional
@@ -35,9 +49,6 @@ public class AuctionService {
         Seller seller = sellerRepository.findById(sellerId).orElse(null);
         if (seller == null){
             throw new ApiException("Seller not found");
-        }
-        if (!seller.getIsAdmin()){
-            throw new ApiException("Only auction house admins can create auctions");
         }
 
         AuctionHouse auctionHouse = seller.getAuctionHouse();
@@ -49,11 +60,14 @@ public class AuctionService {
         auction.setTitle(auctionDTOIN.getTitle());
         auction.setDescription(auctionDTOIN.getDescription());
         auction.setStartingPrice(auctionDTOIN.getStartingPrice());
+        validateReservePrice(auctionDTOIN.getStartingPrice(), auctionDTOIN.getReservePrice());
+        auction.setReservePrice(auctionDTOIN.getReservePrice());
         auction.setCurrentPrice(auctionDTOIN.getStartingPrice());
         auction.setStatus("PENDING");
         auction.setStartDate(auctionDTOIN.getStartDate());
         auction.setEndDate(auctionDTOIN.getEndDate());
         auction.setAuctionHouse(auctionHouse);
+        auction.setSeller(seller);
 
         auctionRepository.save(auction);
     }
@@ -79,6 +93,8 @@ public class AuctionService {
         auction.setTitle(auctionDTOIN.getTitle());
         auction.setDescription(auctionDTOIN.getDescription());
         auction.setStartingPrice(auctionDTOIN.getStartingPrice());
+        validateReservePrice(auctionDTOIN.getStartingPrice(), auctionDTOIN.getReservePrice());
+        auction.setReservePrice(auctionDTOIN.getReservePrice());
         auction.setStartDate(auctionDTOIN.getStartDate());
         auction.setEndDate(auctionDTOIN.getEndDate());
 
@@ -107,5 +123,32 @@ public class AuctionService {
         }
         imageService.deleteAuctionImages(auctionId);
         auctionRepository.delete(auction);
+    }
+
+    private void validateReservePrice(Double startingPrice, Double reservePrice) {
+        if (reservePrice != null && reservePrice < startingPrice) {
+            throw new ApiException("Reserve price cannot be lower than starting price");
+        }
+    }
+
+    private boolean refreshAuctionOutcome(Auction auction) {
+        if (auction == null || auction.getEndDate() == null || LocalDateTime.now().isBefore(auction.getEndDate())) {
+            return false;
+        }
+
+        boolean failedBelowReserve = auction.getReservePrice() != null
+                && (auction.getCurrentPrice() == null || auction.getCurrentPrice() < auction.getReservePrice());
+        String nextStatus = failedBelowReserve ? "FAILED_BELOW_RESERVE" : "ENDED";
+
+        if (nextStatus.equals(auction.getStatus())) {
+            return false;
+        }
+
+        auction.setStatus(nextStatus);
+        if (failedBelowReserve) {
+            auction.setHighestBidder(null);
+            auction.setHighestBidderEmail(null);
+        }
+        return true;
     }
 }

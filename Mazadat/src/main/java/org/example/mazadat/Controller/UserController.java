@@ -1,9 +1,11 @@
 package org.example.mazadat.Controller;
 
 import lombok.RequiredArgsConstructor;
+import org.example.mazadat.Model.User;
 import org.example.mazadat.Service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +22,11 @@ public class UserController {
     @GetMapping("/get/all")
     public ResponseEntity<?> getAllUserDTOS(){
         return ResponseEntity.status(HttpStatus.OK.value()).body(userService.getAllUserDTOS());
+    }
+
+    @GetMapping("/current")
+    public ResponseEntity<?> getCurrentUserProfile(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.OK.value()).body(userService.getCurrentUserProfile(user.getId()));
     }
 
 }

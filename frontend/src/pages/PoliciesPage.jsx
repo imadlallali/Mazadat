@@ -15,6 +15,20 @@ export default function PoliciesPage() {
     const navigate = useNavigate();
     const isAr = i18n.language === 'ar';
 
+    const goHomeByRole = () => {
+        try {
+            const stored = localStorage.getItem('user');
+            const parsed = stored ? JSON.parse(stored) : null;
+            if (parsed?.role === 'SELLER') {
+                navigate('/seller-dashboard');
+                return;
+            }
+        } catch {
+            // Fall through to buyer home.
+        }
+        navigate('/');
+    };
+
     return (
         <div className="min-h-screen bg-[#F4FAFA] px-4 py-10">
             <div className="max-w-3xl mx-auto">
@@ -49,7 +63,7 @@ export default function PoliciesPage() {
                 {/* Back Button */}
                 <div className="mt-8 flex justify-center">
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={goHomeByRole}
                         className="flex items-center gap-2 bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-8 py-3 rounded-lg font-bold transition-colors"
                     >
                         {isAr ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}

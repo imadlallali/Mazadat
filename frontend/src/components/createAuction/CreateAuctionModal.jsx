@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, X } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
 import StepIndicator from './StepIndicator';
 import AuctionDetailsStep from './AuctionDetailsStep';
 import ProductImagesStep from './ProductImagesStep';
@@ -11,9 +10,8 @@ import ReviewPublishStep from './ReviewPublishStep';
 import { createAuction, getAllAuctions } from '@/services/auctionService';
 import { uploadImages } from '@/services/imageService';
 
-export default function CreateAuctionModal({ open, onOpenChange }) {
+export default function CreateAuctionModal({ open, onOpenChange, onSuccess }) {
   const { t } = useTranslation('createAuction');
-  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isPublished, setIsPublished] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,14 +55,31 @@ export default function CreateAuctionModal({ open, onOpenChange }) {
       const beforeAuctions = await getAllAuctions();
       const beforeIds = new Set((beforeAuctions || []).map((auction) => auction.id));
 
+      // Convert dates to ISO format
+      const startDateObj = new Date(formData.startDate);
+      const endDateObj = new Date(formData.endDate);
+
+
+      // Format: yyyy-MM-dd'T'HH:mm
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
       const auctionPayload = {
         title: formData.title,
         description: formData.description,
         startingPrice: parseFloat(formData.startingPrice),
-        startDate: formData.startDate,
-        endDate: formData.endDate,
+        startDate: formatDate(startDateObj),
+        endDate: formatDate(endDateObj),
         ...(formData.reservePrice ? { reservePrice: parseFloat(formData.reservePrice) } : {}),
       };
+
+      console.log('[CreateAuctionModal] Sending auction payload:', auctionPayload);
 
       const createResult = await createAuction(auctionPayload);
       const createdAuctionId =
@@ -93,14 +108,18 @@ export default function CreateAuctionModal({ open, onOpenChange }) {
       }
 
       setIsPublished(true);
-    } catch {
-      setError(t('publishFailed'));
+    } catch (err) {
+      console.error('[CreateAuctionModal] Error:', err);
+      setError(err.message || t('publishFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
+    if (isPublished) {
+      onSuccess?.();
+    }
     onOpenChange(false);
   };
 

@@ -2,20 +2,31 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User } from 'lucide-react';
 import CountdownTimer from './CountdownTimer';
-import { placeBid } from '@/services/bidService';
+import PlaceBidModal from './PlaceBidModal';
+import { placeBid, generateReceipt } from '@/services/bidService';
 import { deleteAuction } from '@/services/auctionService';
 import { resolveImageUrl } from '@/services/imageService';
+import { resolveTextAlignmentClass, resolveTextDirection } from '@/lib/textDirection';
+import ImageWithRetry from '@/components/ui/ImageWithRetry';
 
 export default function AuctionCard({ auction, currentUser, onActionComplete }) {
     const { t, i18n } = useTranslation('common');
     const [loading, setLoading] = useState(false);
+    const [bidModalOpen, setBidModalOpen] = useState(false);
     const isAr = i18n.language === 'ar';
 
     const isBuyer = currentUser?.role === 'BUYER';
     const isSeller = currentUser?.role === 'SELLER';
     const isActive = auction?.status === 'ACTIVE';
     const isPending = auction?.status === 'PENDING';
-    const canBid = isBuyer && isActive;
+    const isEnded = auction?.status === 'COMPLETED' || auction?.status === 'ENDED';
+    const isFailedBelowReserve = auction?.status === 'FAILED_BELOW_RESERVE';
+
+    // Check if auction time has passed
+    const hasEndTimePasssed = auction?.endDate && new Date(auction.endDate) < new Date();
+    const auctionEnded = isEnded || isFailedBelowReserve || hasEndTimePasssed;
+
+    const canBid = isBuyer && (isActive || isPending) && !auctionEnded;
     const currentPrice = Number(auction?.currentPrice);
     const startingPrice = Number(auction?.startingPrice);
     const hasBids = Number.isFinite(auction?.bidCount)
@@ -23,29 +34,23 @@ export default function AuctionCard({ auction, currentUser, onActionComplete }) 
         : (Number.isFinite(currentPrice) && Number.isFinite(startingPrice)
             ? currentPrice > startingPrice
             : !!currentPrice);
+    const baseBid = currentPrice > 0 ? currentPrice : startingPrice;
+    const minRequiredBid = hasBids
+        ? Math.ceil(baseBid * 1.05)
+        : Math.floor(startingPrice > 0 ? startingPrice : 0) + 1;
     const canCancel = isSeller && (isActive || isPending) && !hasBids;
 
-    const handlePlaceBid = async () => {
-        const bidValue = window.prompt(isAr ? 'أدخل قيمة المزايدة' : 'Enter your bid amount');
-        if (!bidValue) return;
+    // Determine if current user won the auction
+    const isWinner = isBuyer && auctionEnded && hasBids && auction?.highestBidder === currentUser?.username;
 
-        const amount = Number(bidValue);
-        if (!Number.isFinite(amount) || amount <= 0) {
-            alert(isAr ? 'قيمة غير صحيحة' : 'Invalid bid amount');
-            return;
-        }
-
-        if (auction?.currentPrice && amount <= auction.currentPrice) {
-            alert(isAr ? 'يجب أن تكون المزايدة أعلى من السعر الحالي' : 'Bid must be higher than current price');
-            return;
-        }
-
+    const handlePlaceBid = async (amount) => {
         setLoading(true);
         try {
             await placeBid(auction.id, amount);
+            setBidModalOpen(false);
             onActionComplete?.('bid');
-        } catch {
-            alert(t('actionFailed'));
+        } catch (error) {
+            alert(error.message || t('actionFailed'));
         } finally {
             setLoading(false);
         }
@@ -66,88 +71,180 @@ export default function AuctionCard({ auction, currentUser, onActionComplete }) 
         }
     };
 
+    const handleGenerateReceipt = async () => {
+        // Check if auction has ended
+        const now = new Date();
+        const endDate = new Date(auction.endDate);
+
+        if (now < endDate) {
+            alert(isAr ? 'لا يمكن تحميل الإيصال قبل انتهاء المزاد' : 'Receipt can only be downloaded after the auction ends');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await generateReceipt(auction.id);
+            alert(isAr ? 'تم تحميل الإيصال بنجاح' : 'Receipt downloaded successfully!');
+        } catch (err) {
+            alert(err.message || (isAr ? 'فشل تحميل الإيصال' : 'Failed to generate receipt'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const titleDir = resolveTextDirection(auction?.title || '');
+    const descriptionDir = resolveTextDirection(auction?.description || '');
+
     return (
-        <div className="bg-white border border-[#C5E0DC] rounded-xl overflow-hidden shadow-sm">
+        <div className="relative bg-white border border-[#C5E0DC] rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+
+            {/* Live Auction Corner Badge */}
+            {!auctionEnded && (
+                <div className="absolute top-2 end-2 z-10 bg-red-600 text-white rounded-full px-2.5 py-1 text-[10px] font-bold flex items-center gap-1.5 shadow-sm">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-100" />
+                    </span>
+                    {isAr ? 'مزاد مباشر' : 'Live Auction'}
+                </div>
+            )}
 
             {/* Card Header */}
-            <div className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#EAF7F5] flex items-center justify-center shrink-0">
-                    <User className="w-5 h-5 text-[#2A9D8F]" />
+            <div className="p-3 flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#EAF7F5] flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-[#2A9D8F]" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-[#1A2E2C]">
+                    <h3 className="font-bold text-[#1A2E2C] text-xs truncate">
                         {auction?.sellerName || (isAr ? 'بائع' : 'Seller')}
                     </h3>
-                    <p className="text-xs text-[#6B9E99]">
-                        {isAr ? 'مزاد' : 'Auction'}
+                    <p className="text-[11px] text-[#6B9E99]">
+                        {auction?.auctionHouseName || (isAr ? 'مزاد' : 'Auction')}
                     </p>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="px-4 pb-3">
-                <h4 className="font-bold text-lg text-[#1A2E2C] mb-1">{auction?.title}</h4>
-                <p className="text-[#1A2E2C] text-sm leading-relaxed mb-3 line-clamp-2">
+            <div className="px-3 pb-2">
+                <h4 dir={titleDir} className={`font-bold text-sm text-[#1A2E2C] mb-1 line-clamp-2 ${resolveTextAlignmentClass(auction?.title || '')}`}>{auction?.title}</h4>
+                <p dir={descriptionDir} className={`text-[#1A2E2C] text-[11px] leading-relaxed mb-1 line-clamp-2 ${resolveTextAlignmentClass(auction?.description || '')}`}>
                     {auction?.description}
                 </p>
             </div>
 
             {/* Image */}
             {auction?.images?.length > 0 ? (
-                <img
-                    src={resolveImageUrl(auction.images[0].url)}
-                    alt={auction.title}
-                    className="w-full h-72 object-cover border-y border-gray-100"
-                />
+                <div className="relative w-full h-36 overflow-hidden border-y border-gray-100">
+                    <ImageWithRetry
+                        src={resolveImageUrl(auction.images[0].url, auction.images[0].createdAt || auction.images[0].id)}
+                        alt={auction.title}
+                        className="w-full h-full object-cover"
+                    />
+                </div>
             ) : (
-                <div className="w-full h-72 bg-[#F4FAFA] border-y border-[#C5E0DC] flex items-center justify-center">
-          <span className="text-[#C5E0DC] font-bold text-4xl">
+                <div className="w-full h-36 bg-[#F4FAFA] border-y border-[#C5E0DC] flex items-center justify-center">
+          <span className="text-[#C5E0DC] font-bold text-lg">
             {isAr ? 'لا توجد صورة' : 'No Image'}
           </span>
                 </div>
             )}
 
             {/* Countdown Timer */}
-            {(isActive || isPending) && auction?.endDate && (
-                <div className="px-4 pt-4 flex items-center gap-2">
-                    <span className="text-[#6B9E99] text-sm font-semibold">{t('timeLeft')}:</span>
-                    <CountdownTimer endDate={auction.endDate} />
+            {(isActive || isPending) && auction?.endDate && !auctionEnded && (
+                <div className="px-3 pt-2.5 flex items-center gap-2 flex-wrap">
+                    <span className="text-[#6B9E99] text-xs font-semibold">{t('timeLeft')}:</span>
+                    <div className="flex-1">
+                        <CountdownTimer endDate={auction.endDate} />
+                    </div>
                 </div>
             )}
 
-            {/* Interaction Bar */}
-            <div className="p-4 flex justify-between items-center bg-[#F8F9FA] mt-2">
-                <div className="flex flex-col">
-                    <span className="text-xs text-[#6B9E99]">{t('currentBid')}</span>
-                    <span className="font-bold text-lg text-[#2A9D8F]" dir="ltr">
-            {auction?.currentPrice
-                ? <>{auction.currentPrice} <span className="text-sm">﷼</span></>
-                : <span className="text-sm text-[#6B9E99]">{t('noBids')}</span>
-            }
-          </span>
+            {/* Auction Ended Badge */}
+            {auctionEnded && (
+                <div className="mx-3 mt-2.5 bg-gradient-to-r from-[#E05252]/10 to-[#E05252]/5 border border-[#E05252]/30 rounded-lg py-1.5 px-2.5">
+                    <p className="text-xs font-semibold text-[#E05252]">
+                        {isFailedBelowReserve
+                            ? (isAr ? 'فشل - أقل من الحد الأدنى للبيع' : 'Failed - Below Reserve Price')
+                            : (isAr ? 'انتهى المزاد' : 'Auction Ended')}
+                    </p>
                 </div>
+            )}
 
-                <div className="flex gap-2">
-                    {canCancel && (
-                        <button
-                            onClick={handleCancelAuction}
-                            disabled={loading}
-                            className="bg-white border border-[#E05252] text-[#E05252] hover:bg-[#E05252] hover:text-white px-6 py-2 rounded-lg font-bold transition-colors text-sm disabled:opacity-50"
-                        >
-                            {t('cancelAuction')}
-                        </button>
-                    )}
-                    {canBid && (
-                        <button
-                            onClick={handlePlaceBid}
-                            disabled={loading}
-                            className="bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-6 py-2 rounded-lg font-bold transition-colors text-sm disabled:opacity-50"
-                        >
-                            {t('placeBid')}
-                        </button>
-                    )}
+            {/* Winner Badge - Show to buyer who won */}
+            {auctionEnded && isWinner && (
+                <div className="mx-3 mt-2.5 bg-gradient-to-r from-[#2A9D8F] to-[#1A7A6E] rounded-lg py-1.5 px-2.5 text-white">
+                    <p className="font-bold text-xs">
+                        {isAr ? '🎉 أنت الفائز!' : '🎉 You Won!'}
+                    </p>
+                </div>
+            )}
+
+            {/* Price Section - Flex grow to push buttons down */}
+            <div className="px-3 py-2.5 bg-[#F8F9FA] border-t border-[#C5E0DC] flex-grow flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs text-[#6B9E99] font-medium">{t('currentBid')}</span>
+                    <div className="flex items-baseline gap-1">
+                        {auction?.currentPrice && !auctionEnded ? (
+                            <span className="font-bold text-base text-green-500 animate-pulse" dir="ltr">
+                                {auction.currentPrice}
+                            </span>
+                        ) : (
+                            <span className={`font-bold text-base ${auctionEnded ? 'text-[#2A9D8F]' : 'text-[#2A9D8F]'}`} dir="ltr">
+                                {auction?.currentPrice
+                                    ? auction.currentPrice
+                                    : <span className="text-xs text-[#6B9E99]">{t('noBids')}</span>
+                                }
+                            </span>
+                        )}
+                        {auction?.currentPrice && <span className="text-xs font-semibold text-[#6B9E99]">﷼</span>}
+                    </div>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs text-[#6B9E99]">{isAr ? 'المزايدات' : 'Bids'}</p>
+                    <p className="font-bold text-base text-[#2A9D8F]">{auction?.bidCount || 0}</p>
                 </div>
             </div>
+
+            {/* Interaction Bar - Bottom */}
+            <div className="p-2.5 flex gap-2 bg-white border-t border-[#C5E0DC]">
+                {canCancel && (
+                    <button
+                        onClick={handleCancelAuction}
+                        disabled={loading}
+                        className="flex-1 bg-white border border-[#E05252] text-[#E05252] hover:bg-[#E05252] hover:text-white px-3 py-2 rounded-lg font-bold transition-colors text-xs disabled:opacity-50"
+                    >
+                        {isAr ? 'إلغاء' : 'Cancel'}
+                    </button>
+                )}
+                {canBid && (
+                    <button
+                        onClick={() => setBidModalOpen(true)}
+                        disabled={loading}
+                        className="flex-1 bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-3 py-2 rounded-lg font-bold transition-colors text-xs disabled:opacity-50"
+                    >
+                        {isAr ? 'مزايدة' : 'Bid'}
+                    </button>
+                )}
+                {isWinner && (
+                    <button
+                        onClick={handleGenerateReceipt}
+                        disabled={loading}
+                        className="flex-1 bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-3 py-2 rounded-lg font-bold transition-colors text-xs disabled:opacity-50"
+                    >
+                        {isAr ? 'إيصال' : 'Receipt'}
+                    </button>
+                )}
+            </div>
+
+            <PlaceBidModal
+                open={bidModalOpen}
+                onOpenChange={setBidModalOpen}
+                currentPrice={currentPrice}
+                minBid={minRequiredBid}
+                hasPreviousBid={hasBids}
+                onBidSubmit={handlePlaceBid}
+                loading={loading}
+            />
         </div>
     );
 }

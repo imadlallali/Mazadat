@@ -41,8 +41,12 @@ public class ConfigSecurity {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authenticationProvider(daoAuthenticationProvider)
             .authorizeHttpRequests(auth -> auth
+                // Allow all OPTIONS requests (CORS preflight)
+                    .requestMatchers("OPTIONS", "/**").permitAll()
                 // Admin endpoints
                     .requestMatchers("/api/v1/user/get/all").hasAuthority("ADMIN")
+                // Auth endpoints (authentication required)
+                    .requestMatchers("/api/v1/auth/**").authenticated()
                 // Public endpoints (no authentication required)
                     .requestMatchers("/api/v1/buyer/add").permitAll()
                     .requestMatchers("/api/v1/seller/add").permitAll()
@@ -59,6 +63,7 @@ public class ConfigSecurity {
                     .requestMatchers("/api/v1/auctionhouse/update").authenticated()
                     .requestMatchers("/api/v1/seller/update").authenticated()
                     .requestMatchers("/api/v1/seller/delete").authenticated()
+                    .requestMatchers("/api/v1/seller/delete/**").authenticated()
                 // Buyer endpoints (authenticated - buyers)
                     .requestMatchers("/api/v1/bid/add").authenticated()
                     .requestMatchers("/api/v1/receipt/generate/**").authenticated()

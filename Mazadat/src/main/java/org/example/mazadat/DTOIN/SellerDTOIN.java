@@ -24,7 +24,10 @@ public class SellerDTOIN {
              message = "Password must be 8-32 chars with uppercase, lowercase, digit, and special character")
     private String password;
 
+    @NotEmpty(message = "Phone number must exist")
+    @Pattern(regexp = "^\\+9665\\d{8}$", message = "Phone number must match Saudi format: +9665XXXXXXXX")
+    private String phoneNumber;
+
     // From the Seller model
-    @Size(max = 255, message = "Bank account must be at most 255 chars")
-    private String bankAccount;
+    private String iban;
 }

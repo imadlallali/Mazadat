@@ -9,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
 @Setter
@@ -31,6 +32,12 @@ public class AuctionHouse {
     @Column(columnDefinition = "VARCHAR(255)")
     private String description;
 
+    @Column(columnDefinition = "VARCHAR(34)")
+    private String iban;
+
+    @Column(columnDefinition = "VARCHAR(255)")
+    private String settingsNote;
+
 
     @CreationTimestamp
     @Column(updatable = false)
@@ -40,10 +47,10 @@ public class AuctionHouse {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "auctionHouse", cascade = CascadeType.ALL)
-    private Set<Auction> auctions;
+    private Set<Auction> auctions = new HashSet<>();
 
     @OneToMany(mappedBy = "auctionHouse", cascade = CascadeType.ALL)
-    private Set<Seller> sellers;
+    private Set<Seller> sellers = new HashSet<>();
 
 
 }

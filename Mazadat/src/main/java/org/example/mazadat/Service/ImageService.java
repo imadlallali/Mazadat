@@ -119,9 +119,6 @@ public class ImageService {
         if (seller == null) {
             throw new ApiException("Seller not found");
         }
-        if (!seller.getIsAdmin()) {
-            throw new ApiException("Only auction house admins can manage images");
-        }
         if (seller.getAuctionHouse() == null) {
             throw new ApiException("Seller does not belong to an auction house");
         }
@@ -132,6 +129,13 @@ public class ImageService {
         }
         if (!auction.getAuctionHouse().getId().equals(seller.getAuctionHouse().getId())) {
             throw new ApiException("Auction does not belong to your auction house");
+        }
+
+        // Non-admin sellers can only manage images for their own auctions.
+        if (!Boolean.TRUE.equals(seller.getIsAdmin())) {
+            if (auction.getSeller() == null || !auction.getSeller().getId().equals(seller.getId())) {
+                throw new ApiException("You can only manage images for your own auctions");
+            }
         }
         return auction;
     }

@@ -3,6 +3,7 @@ package org.example.mazadat.Service;
 import lombok.RequiredArgsConstructor;
 import org.example.mazadat.Api.ApiException;
 import org.example.mazadat.DTOIN.BidDTOIN;
+import org.example.mazadat.DTOOUT.BidDTOOUT;
 import org.example.mazadat.Model.Auction;
 import org.example.mazadat.Model.Bid;
 import org.example.mazadat.Model.Buyer;
@@ -11,6 +12,7 @@ import org.example.mazadat.Repository.BidRepository;
 import org.example.mazadat.Repository.BuyerRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -23,11 +25,21 @@ public class BidService {
 
 
     public List<Bid> getAllBids(){
-        List<Bid> bids = bidRepository.findAll();
-        if (bids.isEmpty()){
-            throw new ApiException("Bid array is empty");
-        }
-        return bids;
+        return bidRepository.findAll();
+    }
+
+    public List<BidDTOOUT> getBuyerBids(Integer buyerId){
+        return bidRepository.findHighestBuyerBidPerAuction(buyerId)
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    public List<BidDTOOUT> getWonBids(Integer buyerId){
+        return bidRepository.findWonHighestBuyerBidPerAuction(buyerId, LocalDateTime.now())
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
     public void addBid(BidDTOIN bidDTOIN, Integer buyerId){
@@ -41,8 +53,13 @@ public class BidService {
             throw new ApiException("Auction not found");
         }
 
-        if (!"ACTIVE".equals(auction.getStatus())){
+        if (!"ACTIVE".equals(auction.getStatus()) && !"PENDING".equals(auction.getStatus())){
             throw new ApiException("Auction is not active");
+        }
+
+        // Check if auction has ended
+        if (auction.getEndDate() != null && LocalDateTime.now().isAfter(auction.getEndDate())){
+            throw new ApiException("Auction has ended");
         }
 
         if (bidDTOIN.getAmount() <= auction.getCurrentPrice()){
@@ -55,8 +72,24 @@ public class BidService {
         bid.setBuyer(buyer);
 
         auction.setCurrentPrice(bidDTOIN.getAmount());
+        auction.setHighestBidder(buyer.getUser().getUsername());
 
         auctionRepository.save(auction);
         bidRepository.save(bid);
+    }
+
+    private BidDTOOUT toDto(Bid bid) {
+        Auction auction = bid.getAuction();
+        return new BidDTOOUT(
+                bid.getId(),
+                auction != null ? auction.getId() : null,
+                auction != null ? auction.getTitle() : null,
+                bid.getAmount(),
+                auction != null ? auction.getStartingPrice() : null,
+                bid.getPlacedAt(),
+                bid.getBuyer() != null ? bid.getBuyer().getId() : null,
+                auction != null ? auction.getEndDate() : null,
+                auction != null ? auction.getStatus() : null
+        );
     }
 }

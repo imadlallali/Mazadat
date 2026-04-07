@@ -19,3 +19,39 @@ body {
   background-color: #F4FAFA;
   color: #1A2E2C;
 }
+
+/* Green Pulsing Animation for Live Price Updates */
+@keyframes pulsing-price {
+  0%, 100% {
+    color: #2A9D8F;
+    text-shadow: 0 0 10px rgba(42, 157, 143, 0.5);
+  }
+  50% {
+    color: #1A7A6E;
+    text-shadow: 0 0 20px rgba(42, 157, 143, 0.8);
+  }
+}
+
+.pulse-animation {
+  animation: pulsing-price 2s ease-in-out infinite;
+}
+
+/* Smooth scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F4FAFA;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C5E0DC;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2A9D8F;
+}
+

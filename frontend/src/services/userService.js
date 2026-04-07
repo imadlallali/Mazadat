@@ -3,21 +3,10 @@ import { api } from './apiClient';
 export const updateSellerProfile = (data) =>
     api.put('/seller/update', data);
 
-export const updateBuyerProfile = async (data) => {
-    try {
-        return await api.put('/buyer/update', data);
-    } catch {
-        // Fallback keeps UX functional when backend buyer update route is unavailable.
-        const stored = localStorage.getItem('user');
-        const user = stored ? JSON.parse(stored) : null;
+export const getCurrentSellerProfile = () => api.get('/seller/current');
 
-        const updatedUser = {
-            ...(user || {}),
-            username: data.username,
-            email: data.email,
-        };
+export const getCurrentUserProfile = () => api.get('/user/current');
 
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        return updatedUser;
-    }
-};
+export const deleteSellerById = (sellerId) => api.delete(`/seller/delete/${sellerId}`);
+
+export const updateBuyerProfile = (data) => api.put('/buyer/update', data);

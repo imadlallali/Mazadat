@@ -1,178 +1,231 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, User, LogOut } from 'lucide-react';
+import { Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import CreateAuctionModal from '../components/createAuction/CreateAuctionModal';
+import AuctionHouseCreationModal from '../components/createAuction/AuctionHouseCreationModal';
 import AuctionCard from '../components/auction/AuctionCard';
+import TopNavigationBar from '../components/TopNavigationBar';
+import FilterSidebar from '../components/FilterSidebar';
+import MyBidsPage from './MyBidsPage';
 import { getAllAuctions } from '@/services/auctionService';
+import { getSellerAuctionHouse } from '@/services/auctionHouseService';
 
 export default function HomePage() {
-    const { t, i18n } = useTranslation('common');
-    const [currentUser, setCurrentUser] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [auctions, setAuctions] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const isAr = i18n.language === 'ar';
+  const { i18n } = useTranslation('common');
+  const isAr = i18n.language === 'ar';
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem('user');
-            const parsed = stored ? JSON.parse(stored) : null;
-            setCurrentUser(parsed);
-        } catch {
-            setCurrentUser(null);
-        }
-    }, []);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAuctionHouseModalOpen, setIsAuctionHouseModalOpen] = useState(false);
+  const [auctions, setAuctions] = useState([]);
+  const [filteredAuctions, setFilteredAuctions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [hasAuctionHouse, setHasAuctionHouse] = useState(false);
+  const [checkingAuctionHouse, setCheckingAuctionHouse] = useState(false);
+  const [showMyBids, setShowMyBids] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    auctionHouse: '',
+    priceRange: [0, 1],
+    sortBy: 'newest',
+    category: '',
+    status: 'all',
+  });
 
-    useEffect(() => {
-        fetchAuctions();
-    }, []);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      setCurrentUser(stored ? JSON.parse(stored) : null);
+    } catch {
+      setCurrentUser(null);
+    }
+  }, []);
 
-    const fetchAuctions = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await getAllAuctions();
-            setAuctions(data || []);
-        } catch {
-            setError(isAr ? 'فشل تحميل المزادات' : 'Failed to load auctions');
-        } finally {
-            setLoading(false);
-        }
+  useEffect(() => {
+    fetchAuctions();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.role === 'SELLER') {
+      checkSellerAuctionHouse();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [auctions, filters]);
+
+  const checkSellerAuctionHouse = async () => {
+    setCheckingAuctionHouse(true);
+    try {
+      const auctionHouse = await getSellerAuctionHouse();
+      setHasAuctionHouse(!!auctionHouse);
+    } catch {
+      setHasAuctionHouse(false);
+    } finally {
+      setCheckingAuctionHouse(false);
+    }
+  };
+
+  const fetchAuctions = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAllAuctions();
+      const auctionsList = Array.isArray(data) ? data : data?.data || data?.auctions || [];
+      const dynamicMax = Math.max(1, ...auctionsList.map((a) => Number(a?.currentPrice) || Number(a?.startingPrice) || 0));
+      setAuctions(auctionsList);
+      setFilters((prev) => ({
+        ...prev,
+        priceRange: [Math.max(0, Math.min(prev.priceRange[0], dynamicMax)), dynamicMax],
+      }));
+    } catch {
+      setError(isAr ? 'فشل تحميل المزادات' : 'Failed to load auctions');
+      setAuctions([]);
+      setFilteredAuctions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    const now = new Date();
+    const isEndedAuction = (auction) => {
+      const endedByStatus = auction?.status === 'COMPLETED' || auction?.status === 'ENDED';
+      const endedByTime = auction?.endDate ? new Date(auction.endDate) <= now : false;
+      return endedByStatus || endedByTime;
+    };
+    const isLiveAuction = (auction) => {
+      const liveStatus = auction?.status === 'ACTIVE' || auction?.status === 'PENDING';
+      return liveStatus && !isEndedAuction(auction);
     };
 
-    const handleActionComplete = (type) => {
-        if (type === 'cancel') {
-            alert(t('cancelSuccess'));
-        } else if (type === 'sold') {
-            alert(t('markAsSoldSuccess'));
-        }
-        fetchAuctions();
-    };
+    let filtered = [...auctions];
 
-    const handleLogout = () => {
-        localStorage.removeItem('user');
-        window.location.href = '/auth';
-    };
+    if (filters.auctionHouse) {
+      filtered = filtered.filter((a) => String(a.auctionHouseId) === String(filters.auctionHouse));
+    }
 
-    const isSeller = currentUser?.role === 'SELLER';
+    filtered = filtered.filter((a) => {
+      const price = Number(a.currentPrice) || Number(a.startingPrice) || 0;
+      return price >= filters.priceRange[0] && price <= filters.priceRange[1];
+    });
 
-    return (
-        <div className="min-h-screen bg-[#F0F2F5]">
+    if (filters.category) {
+      filtered = filtered.filter((a) => a.category === filters.category);
+    }
 
-            {/* Header */}
-            <header className="bg-white border-b border-[#C5E0DC] px-6 h-16 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-                <img src="/logos/mazadat_green_logo.png" alt="Mazadat" className="h-8" />
+    if (filters.status === 'live') {
+      filtered = filtered.filter((a) => isLiveAuction(a));
+    } else if (filters.status === 'ended') {
+      filtered = filtered.filter((a) => isEndedAuction(a));
+    }
 
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => window.location.href = '/policies'}
-                        className="text-[#6B9E99] hover:text-[#2A9D8F] text-sm font-semibold transition-colors"
-                    >
-                        {isAr ? 'الشروط والسياسات' : 'Policies'}
-                    </button>
+    if (filters.sortBy === 'price-high') {
+      filtered.sort((a, b) => (Number(b.currentPrice) || Number(b.startingPrice) || 0) - (Number(a.currentPrice) || Number(a.startingPrice) || 0));
+    } else if (filters.sortBy === 'price-low') {
+      filtered.sort((a, b) => (Number(a.currentPrice) || Number(a.startingPrice) || 0) - (Number(b.currentPrice) || Number(b.startingPrice) || 0));
+    } else if (filters.sortBy === 'most-bids') {
+      filtered.sort((a, b) => (b.bidCount || 0) - (a.bidCount || 0));
+    } else if (filters.sortBy === 'ending-soon') {
+      filtered.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+    } else {
+      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
 
-                    <button
-                        onClick={() => window.location.href = '/profile/edit'}
-                        className="flex items-center gap-1 text-[#6B9E99] hover:text-[#2A9D8F] text-sm font-semibold transition-colors"
-                    >
-                        <User className="w-4 h-4" />
-                        {isAr ? 'الملف الشخصي' : 'Profile'}
-                    </button>
+    setFilteredAuctions(filtered);
+  };
 
-                    <button
-                        onClick={() => i18n.changeLanguage(isAr ? 'en' : 'ar')}
-                        className="bg-[#F4FAFA] hover:bg-[#E2F1EF] text-[#2A9D8F] px-4 py-2 rounded-lg font-bold transition-colors text-sm"
-                    >
-                        {isAr ? 'English' : 'العربية'}
-                    </button>
+  const handleActionComplete = () => fetchAuctions();
 
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-1 bg-white border border-[#E05252] text-[#E05252] hover:bg-[#E05252] hover:text-white px-4 py-2 rounded-lg font-bold transition-colors text-sm"
-                    >
-                        <LogOut className="w-4 h-4" />
-                        {isAr ? 'تسجيل الخروج' : 'Logout'}
-                    </button>
-                </div>
-            </header>
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    window.location.href = '/auth';
+  };
 
-            <main className="container mx-auto px-4 py-8 max-w-2xl">
+  const handleCreateAuctionClick = () => {
+    if (!hasAuctionHouse) {
+      setIsAuctionHouseModalOpen(true);
+      return;
+    }
+    setIsModalOpen(true);
+  };
 
-                {/* Create Auction Block */}
-                {isSeller && (
-                    <div className="bg-white rounded-xl shadow-sm border border-[#C5E0DC] p-4 mb-6">
-                        <div className="flex gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[#EAF7F5] flex items-center justify-center shrink-0">
-                                <User className="w-6 h-6 text-[#2A9D8F]" />
-                            </div>
-                            <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="flex-1 bg-[#F4FAFA] hover:bg-[#E2F1EF] text-[#6B9E99] px-4 py-2.5 rounded-full font-medium transition-colors border border-[#C5E0DC] focus:outline-none"
-                                style={{ textAlign: isAr ? 'right' : 'left' }}
-                            >
-                                {isAr ? 'ما الذي تريد بيعه اليوم في المزاد؟' : 'What would you like to auction today?'}
-                            </button>
-                        </div>
-                        <div className="h-px bg-gray-100 my-3"></div>
-                        <div className="flex justify-around">
-                            <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="flex items-center gap-2 text-[#6B9E99] hover:bg-[#F4FAFA] px-4 py-2 rounded-lg transition-colors font-semibold flex-1 justify-center"
-                            >
-                                <Plus className="w-5 h-5 text-[#2A9D8F]" />
-                                <span>{isAr ? 'إضافة مزاد جديد' : 'Add New Listing'}</span>
-                            </button>
-                        </div>
-                    </div>
-                )}
+  const isSeller = currentUser?.role === 'SELLER';
+  const isBuyer = currentUser?.role === 'BUYER';
+  const maxFilterPrice = Math.max(1, ...auctions.map((a) => Number(a?.currentPrice) || Number(a?.startingPrice) || 0));
 
-                {/* Loading State */}
-                {loading && (
-                    <div className="flex justify-center items-center py-20">
-                        <div className="w-10 h-10 border-4 border-[#C5E0DC] border-t-[#2A9D8F] rounded-full animate-spin" />
-                    </div>
-                )}
+  useEffect(() => {
+    if (isSeller) {
+      navigate('/seller-dashboard', { replace: true });
+    }
+  }, [isSeller, navigate]);
 
-                {/* Error State */}
-                {!loading && error && (
-                    <div className="bg-white rounded-xl border border-[#E05252] p-6 text-center">
-                        <p className="text-[#E05252] font-semibold mb-4">{error}</p>
-                        <button
-                            onClick={fetchAuctions}
-                            className="bg-[#2A9D8F] hover:bg-[#1A7A6E] text-white px-6 py-2 rounded-lg font-bold transition-colors"
-                        >
-                            {isAr ? 'إعادة المحاولة' : 'Try Again'}
-                        </button>
-                    </div>
-                )}
+  if (showMyBids && isBuyer) {
+    return <MyBidsPage currentUser={currentUser} onBack={() => setShowMyBids(false)} />;
+  }
 
-                {/* Empty State */}
-                {!loading && !error && auctions.length === 0 && (
-                    <div className="bg-white rounded-xl border border-[#C5E0DC] p-12 text-center">
-                        <p className="text-[#6B9E99] font-semibold text-lg">
-                            {isAr ? 'لا توجد مزادات حالياً' : 'No auctions available'}
-                        </p>
-                    </div>
-                )}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#F0F2F5] to-[#E8EAF0] flex flex-col">
+      <TopNavigationBar
+        currentUser={currentUser}
+        isSeller={isSeller}
+        isBuyer={isBuyer}
+        onShowMyBids={() => setShowMyBids(true)}
+        onCreateAuction={handleCreateAuctionClick}
+        onLogout={handleLogout}
+      />
 
-                {/* Auction Feed */}
-                {!loading && !error && auctions.length > 0 && (
-                    <div className="space-y-6">
-                        {auctions.map((auction) => (
-                            <AuctionCard
-                                key={auction.id}
-                                auction={auction}
-                                currentUser={currentUser}
-                                onActionComplete={handleActionComplete}
-                            />
-                        ))}
-                    </div>
-                )}
+      <div className="flex flex-1 overflow-hidden">
+        <FilterSidebar
+          onFiltersChange={setFilters}
+          maxPrice={maxFilterPrice}
+          isMobileOpen={mobileFilterOpen}
+          onMobileClose={() => setMobileFilterOpen(false)}
+        />
 
-            </main>
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-4 py-8 max-w-7xl">
+            <button
+              onClick={() => setMobileFilterOpen(true)}
+              className="lg:hidden flex items-center gap-2 text-[#6B9E99] bg-white border border-[#C5E0DC] px-4 py-3 rounded-lg font-semibold mb-6"
+            >
+              <Menu className="w-4 h-4" />
+              {isAr ? 'المرشحات' : 'Filters'} ({filteredAuctions.length})
+            </button>
 
-            <CreateAuctionModal open={isModalOpen} onOpenChange={setIsModalOpen} />
-        </div>
-    );
+            {!loading && !error && filteredAuctions.length === 0 && (
+              <div className="bg-white rounded-xl border border-[#C5E0DC] p-10 text-center">
+                <p className="text-[#6B9E99] font-semibold">{isAr ? 'لا توجد مزادات تطابق الفلاتر' : 'No auctions match filters'}</p>
+              </div>
+            )}
+
+            {loading && <p className="text-[#6B9E99]">{isAr ? 'جاري التحميل...' : 'Loading...'}</p>}
+
+            {error && (
+              <div className="bg-red-50 border border-[#E05252] rounded-lg p-4 text-[#E05252] font-semibold">
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && filteredAuctions.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8">
+                {filteredAuctions.map((auction) => (
+                  <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
+                    <AuctionCard auction={auction} currentUser={currentUser} onActionComplete={handleActionComplete} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      <CreateAuctionModal open={isModalOpen} onOpenChange={setIsModalOpen} onSuccess={fetchAuctions} />
+      <AuctionHouseCreationModal open={isAuctionHouseModalOpen} onOpenChange={setIsAuctionHouseModalOpen} onSuccess={checkSellerAuctionHouse} />
+    </div>
+  );
 }

@@ -23,6 +23,11 @@ public class AuctionController {
         return ResponseEntity.status(HttpStatus.OK.value()).body(auctionService.getAllAuctions());
     }
 
+    @GetMapping("/{auctionId}")
+    public ResponseEntity<?> getAuctionById(@PathVariable Integer auctionId){
+        return ResponseEntity.status(HttpStatus.OK.value()).body(auctionService.getAuctionById(auctionId));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addAuction(@Valid @RequestBody AuctionDTOIN auctionDTOIN, @AuthenticationPrincipal User user){
         auctionService.addAuction(auctionDTOIN, user.getId());

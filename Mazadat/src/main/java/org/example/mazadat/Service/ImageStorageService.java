@@ -54,7 +54,7 @@ public class ImageStorageService {
             Path targetLocation = imageStorageLocation.resolve(storedFileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-            return "/uploads/images/" + storedFileName;
+            return "/images/" + storedFileName;
         } catch (IOException e) {
             throw new ApiException("Failed to store image file: " + e.getMessage());
         }

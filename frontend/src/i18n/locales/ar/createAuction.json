@@ -14,7 +14,7 @@
   "imagesHelper": "أضف حتى 5 صور. الصورة الأولى ستكون الغلاف.",
   "uploadButton": "رفع صورة",
   "startingPriceLabel": "سعر البداية",
-  "reservePriceLabel": "السعر الاحتياطي (اختياري)",
+  "reservePriceLabel": "الحد الأدنى للبيع",
   "reservePriceTooltip": "الحد الأدنى للسعر الذي تقبله. لن يُكشف للمشترين.",
   "startDateLabel": "تاريخ بدء المزاد",
   "endDateLabel": "تاريخ انتهاء المزاد",
