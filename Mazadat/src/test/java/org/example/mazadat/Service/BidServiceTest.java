@@ -10,6 +10,7 @@ import org.example.mazadat.Model.Bid;
 import org.example.mazadat.Model.Buyer;
 import org.example.mazadat.Model.User;
 import org.example.mazadat.Repository.AuctionRepository;
+import org.example.mazadat.Repository.AutoBidRepository;
 import org.example.mazadat.Repository.BidRepository;
 import org.example.mazadat.Repository.BuyerRepository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,7 +38,7 @@ class BidServiceTest {
     private BuyerRepository buyerRepository;
 
     @Mock
-    private AutoBidService autoBidService;
+    private AutoBidRepository autoBidRepository;
 
     @InjectMocks
     private BidService bidService;

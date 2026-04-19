@@ -41,7 +41,7 @@ class AutoBidServiceTest {
     @Mock private BidRepository bidRepository;
 
     @InjectMocks
-    private AutoBidService autoBidService;
+    private BidService autoBidService;
 
     // ─── setAutoBid ───────────────────────────────────────────────────────────
 
