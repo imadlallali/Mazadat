@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { User, Save, Home, Pencil, X } from 'lucide-react';
 import { getCurrentUserProfile, updateSellerProfile, updateBuyerProfile } from '@/services/userService';
+import TopNavigationBar from '../components/TopNavigationBar';
 
 export default function EditProfilePage() {
     const { t, i18n } = useTranslation('common');
@@ -160,9 +161,27 @@ export default function EditProfilePage() {
         );
     }
 
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        window.location.href = '/auth';
+    };
+
+    const isSeller = user?.role === 'SELLER';
+    const isBuyer = user?.role === 'BUYER';
+
     return (
-        <div className="min-h-screen bg-[#F4FAFA] flex items-center justify-center px-4 py-10">
-            <div className="bg-white rounded-xl shadow-sm border border-[#C5E0DC] w-full max-w-lg p-8">
+        <div className="min-h-screen bg-[#F4FAFA] flex flex-col">
+            <TopNavigationBar
+                currentUser={user}
+                isSeller={isSeller}
+                isBuyer={isBuyer}
+                onShowMyBids={() => navigate('/')}
+                onCreateAuction={() => navigate('/seller-dashboard')}
+                onLogout={handleLogout}
+            />
+
+            <div className="flex-1 flex items-center justify-center px-4 py-10">
+                <div className="bg-white rounded-xl shadow-sm border border-[#C5E0DC] w-full max-w-lg p-8">
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-[#EAF7F5] flex items-center justify-center">
@@ -255,6 +274,7 @@ export default function EditProfilePage() {
                     <Home className="w-5 h-5" />
                     {isAr ? 'العودة للرئيسية' : 'Return to Homepage'}
                 </button>
+            </div>
             </div>
         </div>
     );
