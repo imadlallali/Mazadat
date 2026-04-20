@@ -1,6 +1,9 @@
 package org.example.mazadat.Service;
 
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.example.mazadat.Api.ApiException;
 import org.example.mazadat.DTOIN.BidDTOIN;
 import org.example.mazadat.DTOOUT.BidDTOOUT;
@@ -12,8 +15,7 @@ import org.example.mazadat.Repository.BidRepository;
 import org.example.mazadat.Repository.BuyerRepository;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -62,8 +64,17 @@ public class BidService {
             throw new ApiException("Auction has ended");
         }
 
-        if (bidDTOIN.getAmount() <= auction.getCurrentPrice()){
-            throw new ApiException("Bid amount must be higher than current price");
+        // Validate bid amount using 5% minimum increment rule
+        Optional<Bid> highestBid = bidRepository.findTopByAuctionIdOrderByAmountDescPlacedAtDesc(bidDTOIN.getAuctionId());
+        if (highestBid.isEmpty()) {
+            if (bidDTOIN.getAmount() < auction.getStartingPrice()) {
+                throw new ApiException("First bid must be at least the starting price. Minimum allowed: " + auction.getStartingPrice());
+            }
+        } else {
+            double minRequired = Math.ceil(highestBid.get().getAmount() * 1.05);
+            if (bidDTOIN.getAmount() < minRequired) {
+                throw new ApiException("Bid must be at least 5% higher than the previous highest bid. Minimum allowed: " + minRequired);
+            }
         }
 
         Bid bid = new Bid();
@@ -73,6 +84,12 @@ public class BidService {
 
         auction.setCurrentPrice(bidDTOIN.getAmount());
         auction.setHighestBidder(buyer.getUser().getUsername());
+        auction.setHighestBidderEmail(buyer.getUser().getEmail());
+
+        // Anti-sniping: extend auction by 5 minutes if bid is placed in the last 2 minutes
+        if (auction.getEndDate() != null && !LocalDateTime.now().isBefore(auction.getEndDate().minusMinutes(2))) {
+            auction.setEndDate(auction.getEndDate().plusMinutes(5));
+        }
 
         auctionRepository.save(auction);
         bidRepository.save(bid);
