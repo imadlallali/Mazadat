@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { createAuctionHouse } from '@/services/auctionHouseService';
 
 export default function AuctionHouseCreationModal({ open, onOpenChange, onSuccess }) {
-  const { t, i18n } = useTranslation('common');
+  const { t } = useTranslation('common');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
@@ -46,21 +46,17 @@ export default function AuctionHouseCreationModal({ open, onOpenChange, onSucces
         onSuccess();
       }
     } catch (err) {
-      let errorMessage = err.message;
-      if (errorMessage && errorMessage.includes('size must be between 3 and 255')) {
-        errorMessage = t('sizeBetween3And255') || errorMessage;
-      }
-      setError(errorMessage || t('auctionHouseCreationFailed') || 'Failed to create auction house');
+      setError(err.message || t('auctionHouseCreationFailed') || 'Failed to create auction house');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} dir={i18n.dir()}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-xl text-start">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-xl font-bold text-[#1A2E2C]">
               {t('createAuctionHouse') || 'Create Auction House'}

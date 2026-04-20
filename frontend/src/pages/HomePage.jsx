@@ -8,10 +8,8 @@ import AuctionCard from '../components/auction/AuctionCard';
 import TopNavigationBar from '../components/TopNavigationBar';
 import FilterSidebar from '../components/FilterSidebar';
 import MyBidsPage from './MyBidsPage';
-import WatchlistPage from './WatchlistPage';
 import { getAllAuctions } from '@/services/auctionService';
 import { getSellerAuctionHouse } from '@/services/auctionHouseService';
-import { getFeaturedAuctions } from '@/services/featuredService';
 
 export default function HomePage() {
   const { i18n } = useTranslation('common');
@@ -28,16 +26,13 @@ export default function HomePage() {
   const [hasAuctionHouse, setHasAuctionHouse] = useState(false);
   const [checkingAuctionHouse, setCheckingAuctionHouse] = useState(false);
   const [showMyBids, setShowMyBids] = useState(false);
-  const [showWatchlist, setShowWatchlist] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [featuredAuctionIds, setFeaturedAuctionIds] = useState([]);
   const [filters, setFilters] = useState({
     auctionHouse: '',
     priceRange: [0, 1],
     sortBy: 'newest',
     category: '',
     status: 'all',
-    searchKeyword: '',
   });
 
   useEffect(() => {
@@ -51,7 +46,6 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchAuctions();
-    fetchFeaturedAuctions();
   }, []);
 
   useEffect(() => {
@@ -97,17 +91,6 @@ export default function HomePage() {
     }
   };
 
-  const fetchFeaturedAuctions = async () => {
-    try {
-      const response = await getFeaturedAuctions();
-      const featured = response?.data || [];
-      setFeaturedAuctionIds(featured.map((item) => item.auctionId));
-    } catch (err) {
-      console.error('Error fetching featured auctions:', err);
-      setFeaturedAuctionIds([]);
-    }
-  };
-
   const applyFilters = () => {
     const now = new Date();
     const isEndedAuction = (auction) => {
@@ -121,21 +104,6 @@ export default function HomePage() {
     };
 
     let filtered = [...auctions];
-
-    // Search keyword filter
-    if (filters.searchKeyword) {
-      const keyword = filters.searchKeyword.toLowerCase().trim();
-      filtered = filtered.filter((a) => {
-        const title = (a.title || '').toLowerCase();
-        const description = (a.description || '').toLowerCase();
-        const sellerName = (a.sellerName || '').toLowerCase();
-        const auctionHouseName = (a.auctionHouseName || '').toLowerCase();
-        return title.includes(keyword) ||
-               description.includes(keyword) ||
-               sellerName.includes(keyword) ||
-               auctionHouseName.includes(keyword);
-      });
-    }
 
     if (filters.auctionHouse) {
       filtered = filtered.filter((a) => String(a.auctionHouseId) === String(filters.auctionHouse));
@@ -171,10 +139,7 @@ export default function HomePage() {
     setFilteredAuctions(filtered);
   };
 
-  const handleActionComplete = () => {
-    fetchAuctions();
-    fetchFeaturedAuctions();
-  };
+  const handleActionComplete = () => fetchAuctions();
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -200,29 +165,7 @@ export default function HomePage() {
   }, [isSeller, navigate]);
 
   if (showMyBids && isBuyer) {
-    return (
-      <MyBidsPage
-        currentUser={currentUser}
-        onBack={() => setShowMyBids(false)}
-        onShowWatchlist={() => {
-          setShowMyBids(false);
-          setShowWatchlist(true);
-        }}
-      />
-    );
-  }
-
-  if (showWatchlist && isBuyer) {
-    return (
-      <WatchlistPage
-        currentUser={currentUser}
-        onBack={() => setShowWatchlist(false)}
-        onShowMyBids={() => {
-          setShowWatchlist(false);
-          setShowMyBids(true);
-        }}
-      />
-    );
+    return <MyBidsPage currentUser={currentUser} onBack={() => setShowMyBids(false)} />;
   }
 
   return (
@@ -232,7 +175,6 @@ export default function HomePage() {
         isSeller={isSeller}
         isBuyer={isBuyer}
         onShowMyBids={() => setShowMyBids(true)}
-        onShowWatchlist={() => setShowWatchlist(true)}
         onCreateAuction={handleCreateAuctionClick}
         onLogout={handleLogout}
       />
@@ -270,47 +212,13 @@ export default function HomePage() {
             )}
 
             {!loading && !error && filteredAuctions.length > 0 && (
-              <>
-                {/* Featured Auctions Section */}
-                {featuredAuctionIds.length > 0 && filteredAuctions.some((a) => featuredAuctionIds.includes(a.id)) && (
-                  <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-[#1A2E2C] mb-4 flex items-center gap-2">
-                      <span className="text-[#FFD700]">⭐</span>
-                      {isAr ? 'المزادات المميزة' : 'Featured Auctions'}
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {filteredAuctions
-                        .filter((auction) => featuredAuctionIds.includes(auction.id))
-                        .map((auction) => (
-                          <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
-                            <AuctionCard auction={auction} currentUser={currentUser} onActionComplete={handleActionComplete} isFeatured={true} />
-                          </div>
-                        ))}
-                    </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8">
+                {filteredAuctions.map((auction) => (
+                  <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
+                    <AuctionCard auction={auction} currentUser={currentUser} onActionComplete={handleActionComplete} />
                   </div>
-                )}
-
-                {/* All Auctions Section */}
-                <div className="pb-8">
-                  {featuredAuctionIds.length > 0 && filteredAuctions.some((a) => featuredAuctionIds.includes(a.id)) && (
-                    <h2 className="text-xl font-bold text-[#1A2E2C] mb-4">
-                      {isAr ? 'جميع المزادات' : 'All Auctions'}
-                    </h2>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredAuctions.map((auction) => (
-                      <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
-                        <AuctionCard
-                          auction={auction}
-                          currentUser={currentUser}
-                          onActionComplete={handleActionComplete}
-                          isFeatured={featuredAuctionIds.includes(auction.id)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
+                ))}
+              </div>
             )}
           </div>
         </main>
