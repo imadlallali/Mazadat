@@ -156,6 +156,57 @@ class BidServiceTest {
         verify(auctionRepository).save(auction);
     }
 
+    @Test
+    void addBidExtendsAuctionWhenBidInLastTwoMinutes() {
+        Buyer buyer = buildBuyer();
+        Auction auction = buildAuction();
+        LocalDateTime endDate = LocalDateTime.now().plusSeconds(90);
+        auction.setEndDate(endDate);
+        BidDTOIN dto = buildBidRequest(100.0);
+
+        when(buyerRepository.findById(1)).thenReturn(Optional.of(buyer));
+        when(auctionRepository.findById(10)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescPlacedAtDesc(10)).thenReturn(Optional.empty());
+
+        bidService.addBid(dto, 1);
+
+        assertEquals(endDate.plusMinutes(5), auction.getEndDate());
+    }
+
+    @Test
+    void addBidDoesNotExtendAuctionWhenBidEarlyEnough() {
+        Buyer buyer = buildBuyer();
+        Auction auction = buildAuction();
+        LocalDateTime endDate = LocalDateTime.now().plusMinutes(3);
+        auction.setEndDate(endDate);
+        BidDTOIN dto = buildBidRequest(100.0);
+
+        when(buyerRepository.findById(1)).thenReturn(Optional.of(buyer));
+        when(auctionRepository.findById(10)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescPlacedAtDesc(10)).thenReturn(Optional.empty());
+
+        bidService.addBid(dto, 1);
+
+        assertEquals(endDate, auction.getEndDate());
+    }
+
+    @Test
+    void addBidExtendsAuctionAtExactTwoMinuteBoundary() {
+        Buyer buyer = buildBuyer();
+        Auction auction = buildAuction();
+        LocalDateTime endDate = LocalDateTime.now().plusMinutes(2);
+        auction.setEndDate(endDate);
+        BidDTOIN dto = buildBidRequest(100.0);
+
+        when(buyerRepository.findById(1)).thenReturn(Optional.of(buyer));
+        when(auctionRepository.findById(10)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescPlacedAtDesc(10)).thenReturn(Optional.empty());
+
+        bidService.addBid(dto, 1);
+
+        assertEquals(endDate.plusMinutes(5), auction.getEndDate());
+    }
+
     private BidDTOIN buildBidRequest(double amount) {
         BidDTOIN bidDTOIN = new BidDTOIN();
         bidDTOIN.setAuctionId(10);

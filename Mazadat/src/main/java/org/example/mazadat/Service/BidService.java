@@ -124,6 +124,11 @@ public class BidService {
         auction.setHighestBidder(buyer.getUser().getUsername());
         auction.setHighestBidderEmail(buyer.getUser().getEmail());
 
+        // Anti-sniping: extend auction by 5 minutes if bid is placed in the last 2 minutes
+        if (auction.getEndDate() != null && !LocalDateTime.now().isBefore(auction.getEndDate().minusMinutes(2))) {
+            auction.setEndDate(auction.getEndDate().plusMinutes(5));
+        }
+
         auctionRepository.save(auction);
         bidRepository.save(bid);
 
