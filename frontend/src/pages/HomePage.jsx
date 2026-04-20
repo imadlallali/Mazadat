@@ -11,6 +11,7 @@ import MyBidsPage from './MyBidsPage';
 import WatchlistPage from './WatchlistPage';
 import { getAllAuctions } from '@/services/auctionService';
 import { getSellerAuctionHouse } from '@/services/auctionHouseService';
+import { getFeaturedAuctions } from '@/services/featuredService';
 
 export default function HomePage() {
   const { i18n } = useTranslation('common');
@@ -29,6 +30,7 @@ export default function HomePage() {
   const [showMyBids, setShowMyBids] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [featuredAuctionIds, setFeaturedAuctionIds] = useState([]);
   const [filters, setFilters] = useState({
     auctionHouse: '',
     priceRange: [0, 1],
@@ -49,6 +51,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchAuctions();
+    fetchFeaturedAuctions();
   }, []);
 
   useEffect(() => {
@@ -91,6 +94,17 @@ export default function HomePage() {
       setFilteredAuctions([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFeaturedAuctions = async () => {
+    try {
+      const response = await getFeaturedAuctions();
+      const featured = response?.data || [];
+      setFeaturedAuctionIds(featured.map((item) => item.auctionId));
+    } catch (err) {
+      console.error('Error fetching featured auctions:', err);
+      setFeaturedAuctionIds([]);
     }
   };
 
@@ -157,7 +171,10 @@ export default function HomePage() {
     setFilteredAuctions(filtered);
   };
 
-  const handleActionComplete = () => fetchAuctions();
+  const handleActionComplete = () => {
+    fetchAuctions();
+    fetchFeaturedAuctions();
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -253,13 +270,47 @@ export default function HomePage() {
             )}
 
             {!loading && !error && filteredAuctions.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8">
-                {filteredAuctions.map((auction) => (
-                  <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
-                    <AuctionCard auction={auction} currentUser={currentUser} onActionComplete={handleActionComplete} />
+              <>
+                {/* Featured Auctions Section */}
+                {featuredAuctionIds.length > 0 && filteredAuctions.some((a) => featuredAuctionIds.includes(a.id)) && (
+                  <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-[#1A2E2C] mb-4 flex items-center gap-2">
+                      <span className="text-[#FFD700]">⭐</span>
+                      {isAr ? 'المزادات المميزة' : 'Featured Auctions'}
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {filteredAuctions
+                        .filter((auction) => featuredAuctionIds.includes(auction.id))
+                        .map((auction) => (
+                          <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
+                            <AuctionCard auction={auction} currentUser={currentUser} onActionComplete={handleActionComplete} isFeatured={true} />
+                          </div>
+                        ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* All Auctions Section */}
+                <div className="pb-8">
+                  {featuredAuctionIds.length > 0 && filteredAuctions.some((a) => featuredAuctionIds.includes(a.id)) && (
+                    <h2 className="text-xl font-bold text-[#1A2E2C] mb-4">
+                      {isAr ? 'جميع المزادات' : 'All Auctions'}
+                    </h2>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredAuctions.map((auction) => (
+                      <div key={auction.id} onClick={() => navigate(`/auction/${auction.id}`)} className="cursor-pointer">
+                        <AuctionCard
+                          auction={auction}
+                          currentUser={currentUser}
+                          onActionComplete={handleActionComplete}
+                          isFeatured={featuredAuctionIds.includes(auction.id)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </main>

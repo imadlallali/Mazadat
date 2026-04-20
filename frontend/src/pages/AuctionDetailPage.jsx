@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, User, Trophy, Download, Home } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Trophy, Download, Home, Star } from 'lucide-react';
 import CountdownTimer from '@/components/auction/CountdownTimer';
 import PlaceBidModal from '@/components/auction/PlaceBidModal';
 import { placeBid, generateReceipt } from '@/services/bidService';
@@ -10,6 +10,7 @@ import { resolveImageUrl } from '@/services/imageService';
 import { resolveTextAlignmentClass, resolveTextDirection } from '@/lib/textDirection';
 import ImageWithRetry from '@/components/ui/ImageWithRetry';
 import WatchlistButton from '@/components/watchlist/WatchlistButton';
+import { getFeaturedAuctions, featureAuction, unfeatureAuction } from '@/services/featuredService';
 
 export default function AuctionDetailPage({ currentUser }) {
     const { t, i18n } = useTranslation('common');
@@ -23,6 +24,8 @@ export default function AuctionDetailPage({ currentUser }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [bidModalOpen, setBidModalOpen] = useState(false);
     const [bidLoading, setBidLoading] = useState(false);
+    const [isFeatured, setIsFeatured] = useState(false);
+    const [featureLoading, setFeatureLoading] = useState(false);
 
     // Fetch auction from API
     useEffect(() => {
@@ -45,6 +48,26 @@ export default function AuctionDetailPage({ currentUser }) {
             fetchAuction();
         }
     }, [auctionId, isAr]);
+
+    // Check if auction is featured
+    useEffect(() => {
+        const checkFeatured = async () => {
+            try {
+                const response = await getFeaturedAuctions();
+                const featuredAuctions = response?.data || [];
+                const isFeaturedAuction = featuredAuctions.some(
+                    (item) => item.auctionId === Number(auctionId)
+                );
+                setIsFeatured(isFeaturedAuction);
+            } catch (err) {
+                console.error('Error checking featured status:', err);
+            }
+        };
+
+        if (auctionId) {
+            checkFeatured();
+        }
+    }, [auctionId]);
 
     if (loading) {
         return (
@@ -132,6 +155,25 @@ export default function AuctionDetailPage({ currentUser }) {
             alert(err.message || (isAr ? 'فشل تحميل الإيصال' : 'Failed to generate receipt'));
         } finally {
             setBidLoading(false);
+        }
+    };
+
+    const handleToggleFeatured = async () => {
+        setFeatureLoading(true);
+        try {
+            if (isFeatured) {
+                await unfeatureAuction(Number(auctionId));
+                setIsFeatured(false);
+                alert(isAr ? 'تم إلغاء التمييز بنجاح' : 'Unfeatured successfully!');
+            } else {
+                await featureAuction(Number(auctionId));
+                setIsFeatured(true);
+                alert(isAr ? 'تم تمييز المزاد بنجاح' : 'Featured successfully!');
+            }
+        } catch (err) {
+            alert(err.message || (isAr ? 'فشل تحديث حالة التمييز' : 'Failed to update featured status'));
+        } finally {
+            setFeatureLoading(false);
         }
     };
 
@@ -260,12 +302,20 @@ export default function AuctionDetailPage({ currentUser }) {
 
                         {/* Title */}
                         <div className="bg-white rounded-xl border border-[#C5E0DC] p-4 shadow-sm">
-                            <h1
-                                dir={titleDir}
-                                className={`font-bold text-2xl text-[#1A2E2C] ${resolveTextAlignmentClass(auction?.title || '')}`}
-                            >
-                                {auction?.title}
-                            </h1>
+                            <div className="flex items-start justify-between gap-3">
+                                <h1
+                                    dir={titleDir}
+                                    className={`font-bold text-2xl text-[#1A2E2C] ${resolveTextAlignmentClass(auction?.title || '')}`}
+                                >
+                                    {auction?.title}
+                                </h1>
+                                {isFeatured && (
+                                    <div className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-white rounded-full px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 shadow-md shrink-0">
+                                        <Star className="w-4 h-4 fill-current" />
+                                        {isAr ? 'مميز' : 'Featured'}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Price Section */}
@@ -339,6 +389,24 @@ export default function AuctionDetailPage({ currentUser }) {
 
                             {isBuyer && (
                                 <WatchlistButton auctionId={auction.id} variant="full" className="w-full text-sm" />
+                            )}
+
+                            {/* Feature Toggle - Only for sellers viewing their own auctions */}
+                            {isSeller && (
+                                <button
+                                    onClick={handleToggleFeatured}
+                                    disabled={featureLoading}
+                                    className={`w-full px-4 py-3 rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm ${
+                                        isFeatured
+                                            ? 'bg-gradient-to-r from-[#FFD700] to-[#FFA500] hover:from-[#FFA500] hover:to-[#FFD700] text-white'
+                                            : 'bg-white border border-[#C5E0DC] hover:bg-[#F4FAFA] text-[#2A9D8F]'
+                                    }`}
+                                >
+                                    <Star className={`w-4 h-4 ${isFeatured ? 'fill-current' : ''}`} />
+                                    {isFeatured
+                                        ? (isAr ? 'إلغاء التمييز' : 'Unfeature')
+                                        : (isAr ? 'تمييز المزاد' : 'Feature Auction')}
+                                </button>
                             )}
 
                             {isWinner && (
