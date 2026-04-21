@@ -25,13 +25,17 @@ public class AuctionService {
 
     public List<Auction> getAllAuctions(){
         List<Auction> auctions = auctionRepository.findAll();
-        boolean hasUpdates = false;
-        for (Auction auction : auctions) {
-            hasUpdates = refreshAuctionOutcome(auction) || hasUpdates;
+        refreshAuctionOutcomes(auctions);
+        return auctions;
+    }
+
+    public List<Auction> searchAuctions(String query) {
+        if (query == null || query.isBlank()) {
+            return getAllAuctions();
         }
-        if (hasUpdates) {
-            auctionRepository.saveAll(auctions);
-        }
+
+        List<Auction> auctions = auctionRepository.searchByQuery(query.trim());
+        refreshAuctionOutcomes(auctions);
         return auctions;
     }
 
@@ -61,6 +65,7 @@ public class AuctionService {
         auction.setDescription(auctionDTOIN.getDescription());
         auction.setStartingPrice(auctionDTOIN.getStartingPrice());
         validateReservePrice(auctionDTOIN.getStartingPrice(), auctionDTOIN.getReservePrice());
+        validateAuctionSchedule(auctionDTOIN.getStartDate(), auctionDTOIN.getEndDate());
         auction.setReservePrice(auctionDTOIN.getReservePrice());
         auction.setCurrentPrice(auctionDTOIN.getStartingPrice());
         auction.setStatus("PENDING");
@@ -94,6 +99,7 @@ public class AuctionService {
         auction.setDescription(auctionDTOIN.getDescription());
         auction.setStartingPrice(auctionDTOIN.getStartingPrice());
         validateReservePrice(auctionDTOIN.getStartingPrice(), auctionDTOIN.getReservePrice());
+        validateAuctionSchedule(auctionDTOIN.getStartDate(), auctionDTOIN.getEndDate());
         auction.setReservePrice(auctionDTOIN.getReservePrice());
         auction.setStartDate(auctionDTOIN.getStartDate());
         auction.setEndDate(auctionDTOIN.getEndDate());
@@ -131,6 +137,20 @@ public class AuctionService {
         }
     }
 
+    private void validateAuctionSchedule(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate == null || endDate == null) {
+            return;
+        }
+
+        if (startDate.isBefore(LocalDateTime.now())) {
+            throw new ApiException("Start date cannot be in the past");
+        }
+
+        if (!endDate.isAfter(startDate)) {
+            throw new ApiException("End date must be after start date");
+        }
+    }
+
     private boolean refreshAuctionOutcome(Auction auction) {
         if (auction == null || auction.getEndDate() == null || LocalDateTime.now().isBefore(auction.getEndDate())) {
             return false;
@@ -150,5 +170,15 @@ public class AuctionService {
             auction.setHighestBidderEmail(null);
         }
         return true;
+    }
+
+    private void refreshAuctionOutcomes(List<Auction> auctions) {
+        boolean hasUpdates = false;
+        for (Auction auction : auctions) {
+            hasUpdates = refreshAuctionOutcome(auction) || hasUpdates;
+        }
+        if (hasUpdates) {
+            auctionRepository.saveAll(auctions);
+        }
     }
 }

@@ -25,6 +25,9 @@ export default function AuctionDetailPage({ currentUser }) {
     const [bidModalOpen, setBidModalOpen] = useState(false);
     const [bidLoading, setBidLoading] = useState(false);
     const [autoBidModalOpen, setAutoBidModalOpen] = useState(false);
+    const [bidSubmitError, setBidSubmitError] = useState(null);
+    const [isFeatured, setIsFeatured] = useState(false);
+    const [featureLoading, setFeatureLoading] = useState(false);
     
     const { autoBid, cancelAutoBid, setAutoBid, isLoading: autoBidLoading } = useAutoBid(auctionId);
 
