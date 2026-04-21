@@ -123,8 +123,8 @@ class BidServiceTest {
 
         when(buyerRepository.findById(1)).thenReturn(Optional.of(buyer));
         when(auctionRepository.findById(10)).thenReturn(Optional.of(auction));
-        when(bidRepository.countDistinctBuyerIdsByIpAddress("10.10.10.10")).thenReturn(2L);
-        when(bidRepository.existsByBuyerIdAndIpAddress(1, "10.10.10.10")).thenReturn(false);
+        when(bidRepository.countDistinctBuyerIdsByIpAddressSince(any(), any(LocalDateTime.class))).thenReturn(2L);
+        when(bidRepository.existsByBuyerIdAndIpAddressSince(1, "10.10.10.10", any(LocalDateTime.class))).thenReturn(false);
         when(bidRepository.countDistinctBuyerIdsByDeviceFingerprint("device-A")).thenReturn(0L);
         when(bidRepository.existsByBuyerIdAndDeviceFingerprint(1, "device-A")).thenReturn(false);
 
@@ -145,8 +145,8 @@ class BidServiceTest {
         when(buyerRepository.findById(1)).thenReturn(Optional.of(buyer));
         when(auctionRepository.findById(10)).thenReturn(Optional.of(auction));
         when(bidRepository.findTopByAuctionIdOrderByAmountDescPlacedAtDesc(10)).thenReturn(Optional.empty());
-        when(bidRepository.countDistinctBuyerIdsByIpAddress("10.0.0.1")).thenReturn(0L);
-        when(bidRepository.existsByBuyerIdAndIpAddress(1, "10.0.0.1")).thenReturn(false);
+        when(bidRepository.countDistinctBuyerIdsByIpAddressSince(any(), any(LocalDateTime.class))).thenReturn(0L);
+        when(bidRepository.existsByBuyerIdAndIpAddressSince(1, "10.0.0.1", any(LocalDateTime.class))).thenReturn(false);
         when(bidRepository.countDistinctBuyerIdsByDeviceFingerprint("device-new")).thenReturn(0L);
         when(bidRepository.existsByBuyerIdAndDeviceFingerprint(1, "device-new")).thenReturn(false);
 
@@ -205,6 +205,27 @@ class BidServiceTest {
         bidService.addBid(dto, 1);
 
         assertEquals(endDate.plusMinutes(5), auction.getEndDate());
+    }
+
+    @Test
+    void addBidAllowsWhenIpThresholdWasReachedBeforeToday() {
+        Buyer buyer = buildBuyer();
+        Auction auction = buildAuction();
+        BidDTOIN dto = buildBidRequest(150.0);
+
+        when(buyerRepository.findById(1)).thenReturn(Optional.of(buyer));
+        when(auctionRepository.findById(10)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescPlacedAtDesc(10)).thenReturn(Optional.empty());
+        // Daily reset: historical usage before today should not block current bidding.
+        when(bidRepository.countDistinctBuyerIdsByIpAddressSince(any(), any(LocalDateTime.class))).thenReturn(0L);
+        when(bidRepository.existsByBuyerIdAndIpAddressSince(1, "10.10.10.10", any(LocalDateTime.class))).thenReturn(false);
+        when(bidRepository.countDistinctBuyerIdsByDeviceFingerprint("device-A")).thenReturn(0L);
+        when(bidRepository.existsByBuyerIdAndDeviceFingerprint(1, "device-A")).thenReturn(false);
+
+        bidService.addBid(dto, 1, "10.10.10.10", "device-A");
+
+        verify(bidRepository).save(any(Bid.class));
+        verify(auctionRepository).save(auction);
     }
 
     private BidDTOIN buildBidRequest(double amount) {

@@ -78,12 +78,31 @@ public interface BidRepository extends JpaRepository<Bid,Integer> {
     long countDistinctBuyerIdsByIpAddress(@Param("ipAddress") String ipAddress);
 
     @Query("""
+            SELECT COUNT(DISTINCT b.buyer.id)
+            FROM Bid b
+            WHERE b.ipAddress = :ipAddress
+              AND b.placedAt >= :since
+            """)
+    long countDistinctBuyerIdsByIpAddressSince(@Param("ipAddress") String ipAddress, @Param("since") LocalDateTime since);
+
+    @Query("""
             SELECT COUNT(b) > 0
             FROM Bid b
             WHERE b.buyer.id = :buyerId
               AND b.ipAddress = :ipAddress
             """)
     boolean existsByBuyerIdAndIpAddress(@Param("buyerId") Integer buyerId, @Param("ipAddress") String ipAddress);
+
+    @Query("""
+            SELECT COUNT(b) > 0
+            FROM Bid b
+            WHERE b.buyer.id = :buyerId
+              AND b.ipAddress = :ipAddress
+              AND b.placedAt >= :since
+            """)
+    boolean existsByBuyerIdAndIpAddressSince(@Param("buyerId") Integer buyerId,
+                                             @Param("ipAddress") String ipAddress,
+                                             @Param("since") LocalDateTime since);
 
     @Query("""
             SELECT COUNT(DISTINCT b.buyer.id)

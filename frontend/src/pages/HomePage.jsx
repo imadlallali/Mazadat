@@ -174,8 +174,8 @@ export default function HomePage() {
   const fetchFeaturedAuctions = async () => {
     try {
       const response = await getFeaturedAuctions();
-      const featured = response?.data || [];
-      setFeaturedAuctionIds(featured.map((item) => item.auctionId));
+      const featured = Array.isArray(response) ? response : response?.data || [];
+      setFeaturedAuctionIds(featured.map((item) => item.id || item.auctionId));
     } catch (err) {
       console.error('Error fetching featured auctions:', err);
       setFeaturedAuctionIds([]);

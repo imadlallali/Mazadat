@@ -67,6 +67,11 @@ public class Auction {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private Boolean isFeatured = false;
+
+    private LocalDateTime featuredEndDate;
+
     @ManyToOne
     @JoinColumn(name = "auction_house_id", nullable = false)
     @JsonIgnore
@@ -111,6 +116,14 @@ public class Auction {
     @JsonProperty("bidCount")
     public Integer getBidCount() {
         return bids == null ? 0 : bids.size();
+    }
+
+    @JsonProperty("isActivelyFeatured")
+    public Boolean getIsActivelyFeatured() {
+        if (!isFeatured || featuredEndDate == null) {
+            return false;
+        }
+        return LocalDateTime.now().isBefore(featuredEndDate);
     }
 
 }

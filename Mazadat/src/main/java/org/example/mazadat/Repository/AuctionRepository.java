@@ -24,4 +24,22 @@ public interface AuctionRepository extends JpaRepository<Auction,Integer> {
 			ORDER BY a.createdAt DESC
 			""")
 	List<Auction> searchByQuery(@Param("query") String query);
+
+	@Query("""
+			SELECT a FROM Auction a
+			WHERE a.isFeatured = true
+			AND a.featuredEndDate > CURRENT_TIMESTAMP
+			ORDER BY FUNCTION('RAND')
+			LIMIT 3
+			""")
+	List<Auction> findRandomFeaturedAuctions();
+
+	@Query("""
+			SELECT a FROM Auction a
+			WHERE a.seller.id = :sellerId
+			AND a.isFeatured = true
+			AND a.featuredEndDate > CURRENT_TIMESTAMP
+			ORDER BY a.featuredEndDate DESC
+			""")
+	List<Auction> findActiveFeaturedBySellerIdOrderByEndDate(@Param("sellerId") Integer sellerId);
 }

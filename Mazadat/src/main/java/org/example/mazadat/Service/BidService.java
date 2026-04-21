@@ -1,8 +1,10 @@
 package org.example.mazadat.Service;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import org.example.mazadat.Api.ApiException;
 import org.example.mazadat.DTOIN.AutoBidDTOIN;
@@ -136,9 +138,12 @@ public class BidService {
     }
 
     private void enforceMultiAccountFraudProtection(Buyer buyer, BidDTOIN bidDTOIN, String ipAddress, String deviceFingerprint) {
-        boolean blockedByIp = shouldBlockByIdentity(ipAddress,
-                bidRepository::countDistinctBuyerIdsByIpAddress,
-                value -> bidRepository.existsByBuyerIdAndIpAddress(buyer.getId(), value));
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+
+        boolean blockedByIp = shouldBlockByIdentitySince(ipAddress,
+                startOfToday,
+                bidRepository::countDistinctBuyerIdsByIpAddressSince,
+                (value, since) -> bidRepository.existsByBuyerIdAndIpAddressSince(buyer.getId(), value, since));
 
         boolean blockedByDevice = shouldBlockByIdentity(deviceFingerprint,
                 bidRepository::countDistinctBuyerIdsByDeviceFingerprint,
@@ -191,6 +196,21 @@ public class BidService {
 
         long distinctBuyers = distinctBuyerCountSupplier.apply(identityValue);
         boolean currentBuyerAlreadyUsedIdentity = currentBuyerUsageSupplier.apply(identityValue);
+        long projectedDistinctBuyers = distinctBuyers + (currentBuyerAlreadyUsedIdentity ? 0 : 1);
+
+        return projectedDistinctBuyers >= multiAccountThreshold;
+    }
+
+    private boolean shouldBlockByIdentitySince(String identityValue,
+                                               LocalDateTime since,
+                                               BiFunction<String, LocalDateTime, Long> distinctBuyerCountSupplier,
+                                               BiFunction<String, LocalDateTime, Boolean> currentBuyerUsageSupplier) {
+        if (identityValue == null) {
+            return false;
+        }
+
+        long distinctBuyers = distinctBuyerCountSupplier.apply(identityValue, since);
+        boolean currentBuyerAlreadyUsedIdentity = currentBuyerUsageSupplier.apply(identityValue, since);
         long projectedDistinctBuyers = distinctBuyers + (currentBuyerAlreadyUsedIdentity ? 0 : 1);
 
         return projectedDistinctBuyers >= multiAccountThreshold;

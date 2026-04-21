@@ -181,4 +181,59 @@ public class AuctionService {
             auctionRepository.saveAll(auctions);
         }
     }
+
+    @Transactional
+    public Auction featureAuction(Integer auctionId, Integer sellerId, LocalDateTime featuredEndDate) {
+        Seller seller = sellerRepository.findById(sellerId)
+                .orElseThrow(() -> new ApiException("Seller not found"));
+
+        Auction auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ApiException("Auction not found"));
+
+        if (!auction.getSeller().getId().equals(sellerId)) {
+            throw new ApiException("You can only feature your own auctions");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (featuredEndDate.isBefore(now) || featuredEndDate.equals(now)) {
+            throw new ApiException("Featured end date must be in the future");
+        }
+
+        if (auction.getIsFeatured() && auction.getFeaturedEndDate() != null && auction.getFeaturedEndDate().isAfter(now)) {
+            throw new ApiException("This auction is already featured");
+        }
+
+        auction.setIsFeatured(true);
+        auction.setFeaturedEndDate(featuredEndDate);
+
+        return auctionRepository.save(auction);
+    }
+
+    @Transactional
+    public void unfeatureAuction(Integer auctionId, Integer sellerId) {
+        Seller seller = sellerRepository.findById(sellerId)
+                .orElseThrow(() -> new ApiException("Seller not found"));
+
+        Auction auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ApiException("Auction not found"));
+
+        if (!auction.getSeller().getId().equals(sellerId)) {
+            throw new ApiException("You can only unfeature your own auctions");
+        }
+
+        auction.setIsFeatured(false);
+        auction.setFeaturedEndDate(null);
+
+        auctionRepository.save(auction);
+    }
+
+    public List<Auction> getRandomFeaturedAuctions() {
+        return auctionRepository.findRandomFeaturedAuctions();
+    }
+
+    public List<Auction> getSellerFeaturedAuctions(Integer sellerId) {
+        sellerRepository.findById(sellerId)
+                .orElseThrow(() -> new ApiException("Seller not found"));
+        return auctionRepository.findActiveFeaturedBySellerIdOrderByEndDate(sellerId);
+    }
 }

@@ -1,9 +1,24 @@
 import { api } from './apiClient';
 
-const USE_MOCK = true; // Set to false when backend is ready
+const USE_MOCK = false; // Set to false when backend is ready
 
 // LocalStorage key
 const STORAGE_KEY = 'mazadat_featured_auctions';
+
+const formatLocalDateTime = (value) => {
+  if (!value) return value;
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 // ========== Mock Implementation (uses localStorage) ==========
 
@@ -63,15 +78,21 @@ const mockUnfeatureAuction = (auctionId) => {
 // ========== API Implementation (connects to backend) ==========
 
 const apiFetchFeaturedAuctions = () => {
-  return api.get('/auctions/featured');
+  return api.get('/auction/featured/random');
 };
 
-const apiFeatureAuction = (auctionId) => {
-  return api.post(`/auctions/${auctionId}/feature`);
+const apiFeatureAuction = (auctionId, featuredEndDate) => {
+  return api.post(`/auction/${auctionId}/feature`, {
+    featuredEndDate: formatLocalDateTime(featuredEndDate)
+  });
 };
 
 const apiUnfeatureAuction = (auctionId) => {
-  return api.delete(`/auctions/${auctionId}/feature`);
+  return api.delete(`/auction/${auctionId}/feature`);
+};
+
+const apiGetSellerFeaturedAuctions = () => {
+  return api.get('/auction/featured/my-featured');
 };
 
 // ========== Export the appropriate implementation ==========
@@ -79,3 +100,4 @@ const apiUnfeatureAuction = (auctionId) => {
 export const getFeaturedAuctions = USE_MOCK ? mockGetFeaturedAuctions : apiFetchFeaturedAuctions;
 export const featureAuction = USE_MOCK ? mockFeatureAuction : apiFeatureAuction;
 export const unfeatureAuction = USE_MOCK ? mockUnfeatureAuction : apiUnfeatureAuction;
+export const getSellerFeaturedAuctions = USE_MOCK ? mockGetFeaturedAuctions : apiGetSellerFeaturedAuctions;

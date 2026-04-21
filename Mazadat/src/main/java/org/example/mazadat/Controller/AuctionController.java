@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.mazadat.Api.ApiResponse;
 import org.example.mazadat.DTOIN.AuctionDTOIN;
+import org.example.mazadat.DTOIN.FeatureAuctionDTOIN;
 import org.example.mazadat.Model.User;
 import org.example.mazadat.Service.AuctionService;
 import org.springframework.http.HttpStatus;
@@ -49,5 +50,30 @@ public class AuctionController {
     public ResponseEntity<?> deleteAuction(@PathVariable Integer auctionId, @AuthenticationPrincipal User user){
         auctionService.deleteAuction(auctionId, user.getId());
         return ResponseEntity.status(HttpStatus.OK.value()).body(new ApiResponse("Auction deleted successfully"));
+    }
+
+    @GetMapping("/featured/random")
+    public ResponseEntity<?> getRandomFeaturedAuctions(){
+        return ResponseEntity.status(HttpStatus.OK.value()).body(auctionService.getRandomFeaturedAuctions());
+    }
+
+    @GetMapping("/featured/my-featured")
+    public ResponseEntity<?> getMyFeaturedAuctions(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(HttpStatus.OK.value()).body(auctionService.getSellerFeaturedAuctions(user.getId()));
+    }
+
+    @PostMapping("/{auctionId}/feature")
+    public ResponseEntity<?> featureAuction(
+            @PathVariable Integer auctionId,
+            @Valid @RequestBody FeatureAuctionDTOIN featureAuctionDTOIN,
+            @AuthenticationPrincipal User user){
+        auctionService.featureAuction(auctionId, user.getId(), featureAuctionDTOIN.getFeaturedEndDate());
+        return ResponseEntity.status(HttpStatus.OK.value()).body(new ApiResponse("Auction featured successfully"));
+    }
+
+    @DeleteMapping("/{auctionId}/feature")
+    public ResponseEntity<?> unfeatureAuction(@PathVariable Integer auctionId, @AuthenticationPrincipal User user){
+        auctionService.unfeatureAuction(auctionId, user.getId());
+        return ResponseEntity.status(HttpStatus.OK.value()).body(new ApiResponse("Auction unfeatured successfully"));
     }
 }

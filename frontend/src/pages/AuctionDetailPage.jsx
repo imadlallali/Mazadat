@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, User, Trophy, Download, Home, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Trophy, Download, Home, X, Zap } from 'lucide-react';
 import CountdownTimer from '@/components/auction/CountdownTimer';
 import PlaceBidModal from '@/components/auction/PlaceBidModal';
 import AutoBidModal from '@/components/auction/AutoBidModal';
+import FeatureAuctionModal from '@/components/auction/FeatureAuctionModal';
 import { useAutoBid } from '@/hooks/useAutoBid';
 import { placeBid, generateReceipt } from '@/services/bidService';
 import { getAuctionById } from '@/services/auctionService';
 import { resolveImageUrl } from '@/services/imageService';
+import { featureAuction } from '@/services/featuredService';
 import { resolveTextAlignmentClass, resolveTextDirection } from '@/lib/textDirection';
 import ImageWithRetry from '@/components/ui/ImageWithRetry';
 
@@ -28,7 +30,8 @@ export default function AuctionDetailPage({ currentUser }) {
     const [bidSubmitError, setBidSubmitError] = useState(null);
     const [isFeatured, setIsFeatured] = useState(false);
     const [featureLoading, setFeatureLoading] = useState(false);
-    
+    const [featureModalOpen, setFeatureModalOpen] = useState(false);
+
     const { autoBid, cancelAutoBid, setAutoBid, isLoading: autoBidLoading } = useAutoBid(auctionId);
 
     // Fetch auction from API
@@ -39,6 +42,7 @@ export default function AuctionDetailPage({ currentUser }) {
                 const response = await getAuctionById(auctionId);
                 console.log('Auction loaded:', response);
                 setAuction(response);
+                setIsFeatured(response?.isActivelyFeatured || false);
                 setError(null);
             } catch (err) {
                 console.error('Error loading auction:', err);
@@ -139,6 +143,20 @@ export default function AuctionDetailPage({ currentUser }) {
             alert(err.message || (isAr ? 'فشل تحميل الإيصال' : 'Failed to generate receipt'));
         } finally {
             setBidLoading(false);
+        }
+    };
+
+    const handleFeatureAuction = async (featuredEndDate) => {
+        setFeatureLoading(true);
+        try {
+            await featureAuction(auction.id, featuredEndDate);
+            setIsFeatured(true);
+            alert(isAr ? 'تم عرض المنتج بنجاح' : 'Product featured successfully!');
+        } catch (error) {
+            alert(error.message || (isAr ? 'فشل عرض المنتج' : 'Failed to feature product'));
+            throw error;
+        } finally {
+            setFeatureLoading(false);
         }
     };
 
@@ -386,6 +404,24 @@ export default function AuctionDetailPage({ currentUser }) {
                                 </button>
                             )}
 
+                            {isSeller && !isFeatured && (
+                                <button
+                                    onClick={() => setFeatureModalOpen(true)}
+                                    disabled={featureLoading}
+                                    className="w-full bg-gradient-to-r from-[#2A9D8F] to-[#1A7A6E] hover:from-[#1A7A6E] hover:to-[#0D5A52] text-white px-4 py-3 rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <Zap className="w-4 h-4" />
+                                    {isAr ? 'عرض هذا المنتج' : 'Feature This Product'}
+                                </button>
+                            )}
+
+                            {isSeller && isFeatured && (
+                                <div className="w-full bg-[#EAF7F5] border border-[#2A9D8F] text-[#2A9D8F] px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 text-sm">
+                                    <Zap className="w-4 h-4" />
+                                    {isAr ? 'المنتج معروض حالياً' : 'Product is Featured'}
+                                </div>
+                            )}
+
                             <button
                                 onClick={() => isSeller ? navigate('/seller-dashboard') : navigate('/')}
                                 className="w-full bg-[#F4FAFA] hover:bg-[#E2F1EF] text-[#2A9D8F] px-4 py-3 rounded-lg font-bold transition-colors text-sm"
@@ -436,6 +472,15 @@ export default function AuctionDetailPage({ currentUser }) {
                 apiLoading={autoBidLoading}
                 setAutoBid={setAutoBid}
                 cancelAutoBid={cancelAutoBid}
+            />
+
+            {/* Feature Auction Modal */}
+            <FeatureAuctionModal
+                open={featureModalOpen}
+                onOpenChange={setFeatureModalOpen}
+                auctionTitle={auction?.title}
+                onFeature={handleFeatureAuction}
+                loading={featureLoading}
             />
         </div>
     );

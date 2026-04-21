@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, Eye, TrendingUp, Package, DollarSign, Clock, ShieldPlus, Search } from 'lucide-react';
+import { Plus, Trash2, Eye, TrendingUp, Package, DollarSign, Clock, ShieldPlus, Search, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TopNavigationBar from '../components/TopNavigationBar';
 import CreateAuctionModal from '../components/createAuction/CreateAuctionModal';
 import AuctionHouseCreationModal from '../components/createAuction/AuctionHouseCreationModal';
+import FeatureAuctionModal from '../components/auction/FeatureAuctionModal';
 import { getSellerAuctionHouse } from '@/services/auctionHouseService';
 import { deleteAuction } from '@/services/auctionService';
 import { resolveImageUrl } from '@/services/imageService';
 import { getCurrentSellerProfile } from '@/services/userService';
+import { featureAuction } from '@/services/featuredService';
 import ImageWithRetry from '@/components/ui/ImageWithRetry';
 
 export default function SellerDashboard() {
@@ -26,6 +28,9 @@ export default function SellerDashboard() {
     const [filterStatus, setFilterStatus] = useState('all'); // all, active, completed
     const [searchQuery, setSearchQuery] = useState('');
     const [currentSeller, setCurrentSeller] = useState(null);
+    const [featureModalOpen, setFeatureModalOpen] = useState(false);
+    const [featureLoading, setFeatureLoading] = useState(false);
+    const [selectedAuctionToFeature, setSelectedAuctionToFeature] = useState(null);
     const isAr = i18n.language === 'ar';
 
     useEffect(() => {
@@ -104,6 +109,31 @@ export default function SellerDashboard() {
             setDeleteError(err?.message || (isAr ? 'فشل حذف المزاد' : 'Failed to delete auction'));
         } finally {
             setDeleteLoading(null);
+        }
+    };
+
+    const handleOpenFeatureModal = (auction) => {
+        setSelectedAuctionToFeature(auction);
+        setFeatureModalOpen(true);
+    };
+
+    const handleFeatureAuction = async (featuredEndDate) => {
+        if (!selectedAuctionToFeature) return;
+
+        setFeatureLoading(true);
+        try {
+            await featureAuction(selectedAuctionToFeature.id, featuredEndDate);
+            setAuctions(auctions.map(a =>
+                a.id === selectedAuctionToFeature.id
+                    ? { ...a, isFeatured: true, featuredEndDate }
+                    : a
+            ));
+            setFeatureModalOpen(false);
+            setSelectedAuctionToFeature(null);
+        } catch (error) {
+            throw error;
+        } finally {
+            setFeatureLoading(false);
         }
     };
 
@@ -461,6 +491,24 @@ export default function SellerDashboard() {
                                                                     >
                                                                         <Eye className="w-4 h-4" />
                                                                     </button>
+                                                                    {!auction.isActivelyFeatured && (
+                                                                        <button
+                                                                            onClick={() => handleOpenFeatureModal(auction)}
+                                                                            className="p-2 hover:bg-yellow-100 rounded-lg transition-colors text-yellow-600"
+                                                                            title={isAr ? 'عرض' : 'Feature'}
+                                                                        >
+                                                                            <Zap className="w-4 h-4" />
+                                                                        </button>
+                                                                    )}
+                                                                    {auction.isActivelyFeatured && (
+                                                                        <button
+                                                                            disabled
+                                                                            className="p-2 bg-yellow-100 rounded-lg text-yellow-600 opacity-50"
+                                                                            title={isAr ? 'معروض' : 'Featured'}
+                                                                        >
+                                                                            <Zap className="w-4 h-4" />
+                                                                        </button>
+                                                                    )}
                                                                     <button
                                                                         onClick={() => handleDeleteAuction(auction.id)}
                                                                         disabled={deleteLoading === auction.id}
@@ -489,6 +537,13 @@ export default function SellerDashboard() {
                 open={isAuctionHouseModalOpen}
                 onOpenChange={setIsAuctionHouseModalOpen}
                 onSuccess={handleAuctionHouseCreated}
+            />
+            <FeatureAuctionModal
+                open={featureModalOpen}
+                onOpenChange={setFeatureModalOpen}
+                auctionTitle={selectedAuctionToFeature?.title}
+                onFeature={handleFeatureAuction}
+                loading={featureLoading}
             />
         </div>
     );
