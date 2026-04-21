@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import com.ibm.icu.text.ArabicShaping;
 import com.ibm.icu.text.ArabicShapingException;
 import com.ibm.icu.text.Bidi;
@@ -38,7 +39,9 @@ public class ReceiptService {
     private final AuctionRepository auctionRepository;
     private final BuyerRepository buyerRepository;
 
-    public byte[] generateReceiptPDF(Integer auctionId, Integer buyerId) {
+    public byte[] generateReceiptPDF(Integer auctionId, Integer buyerId, String language) {
+        boolean arabic = isArabicLanguage(language);
+
         // Fetch auction
         Auction auction = auctionRepository.findById(auctionId).orElse(null);
         if (auction == null) {
@@ -78,7 +81,7 @@ public class ReceiptService {
             auctionRepository.save(auction);
         }
 
-        byte[] pdfBytes = createPDF(auction, buyer);
+        byte[] pdfBytes = createPDF(auction, buyer, arabic);
         if (pdfBytes.length < 16) {
             throw new ApiException("Generated receipt is empty");
         }
@@ -91,8 +94,9 @@ public class ReceiptService {
         return pdfBytes;
     }
 
-    private byte[] createPDF(Auction auction, Buyer buyer) {
+    private byte[] createPDF(Auction auction, Buyer buyer, boolean arabic) {
         try {
+            ReceiptTexts texts = resolveTexts(arabic ? "ar" : "en");
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             PdfWriter writer = new PdfWriter(baos);
             PdfDocument pdfDoc = new PdfDocument(writer);
@@ -112,7 +116,7 @@ public class ReceiptService {
             }
 
             // Title
-            Paragraph title = new Paragraph("MAZADAT AUCTION RECEIPT")
+            Paragraph title = new Paragraph(renderText(texts.title(), arabic))
                     .setFontSize(24)
                     .setBold()
                     .setTextAlignment(TextAlignment.CENTER)
@@ -121,7 +125,7 @@ public class ReceiptService {
 
             // Receipt date
             String formattedDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            Paragraph dateP = new Paragraph("Receipt Generated: " + formattedDate)
+            Paragraph dateP = new Paragraph(renderText(texts.receiptGeneratedLabel() + " " + formattedDate, arabic))
                     .setTextAlignment(TextAlignment.CENTER)
                     .setMarginBottom(20);
             doc.add(dateP);
@@ -130,61 +134,38 @@ public class ReceiptService {
             doc.add(new Paragraph("_".repeat(80)).setTextAlignment(TextAlignment.CENTER).setMarginBottom(20));
 
             // Auction Details
-            Paragraph auctionTitle = new Paragraph("AUCTION DETAILS")
-                    .setBold()
-                    .setFontSize(14)
-                    .setMarginTop(20)
-                    .setMarginBottom(10);
+            Paragraph auctionTitle = sectionTitle(renderText(texts.auctionDetailsTitle(), arabic), arabic);
             doc.add(auctionTitle);
 
             Table auctionTable = new Table(2).setWidth(500);
-            auctionTable.addCell(labelCell("Auction ID:", unicodeFont));
-            auctionTable.addCell(valueCell(String.valueOf(auction.getId()), unicodeFont));
-            auctionTable.addCell(labelCell("Auction Name:", unicodeFont));
-            auctionTable.addCell(valueCell(auction.getTitle() != null ? auction.getTitle() : "N/A", unicodeFont));
-            auctionTable.addCell(labelCell("Auction Description:", unicodeFont));
-            auctionTable.addCell(valueCell(auction.getDescription() != null ? auction.getDescription() : "N/A", unicodeFont));
-            auctionTable.addCell(labelCell("Selling Price:", unicodeFont));
-            auctionTable.addCell(valueCell(auction.getCurrentPrice() + " SR", unicodeFont));
-            auctionTable.addCell(labelCell("Auction End Date:", unicodeFont));
-            auctionTable.addCell(valueCell(auction.getEndDate() != null ?
-                    auction.getEndDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : "N/A", unicodeFont));
+            addTableRow(auctionTable, renderText(texts.auctionIdLabel(), arabic), String.valueOf(auction.getId()), unicodeFont, arabic);
+            addTableRow(auctionTable, renderText(texts.auctionNameLabel(), arabic), auction.getTitle() != null ? auction.getTitle() : fallback(arabic, "N/A", "غير متوفر"), unicodeFont, arabic);
+            addTableRow(auctionTable, renderText(texts.auctionDescriptionLabel(), arabic), auction.getDescription() != null ? auction.getDescription() : fallback(arabic, "N/A", "غير متوفر"), unicodeFont, arabic);
+            addTableRow(auctionTable, renderText(texts.sellingPriceLabel(), arabic), auction.getCurrentPrice() + (arabic ? " ر.س" : " SR"), unicodeFont, arabic);
+            addTableRow(auctionTable, renderText(texts.auctionEndDateLabel(), arabic), auction.getEndDate() != null ?
+                    auction.getEndDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : fallback(arabic, "N/A", "غير متوفر"), unicodeFont, arabic);
             doc.add(auctionTable);
 
             // Seller Details
-            Paragraph sellerTitle = new Paragraph("SELLER INFORMATION")
-                    .setBold()
-                    .setFontSize(14)
-                    .setMarginTop(20)
-                    .setMarginBottom(10);
+            Paragraph sellerTitle = sectionTitle(renderText(texts.sellerInformationTitle(), arabic), arabic);
             doc.add(sellerTitle);
 
             Table sellerTable = new Table(2).setWidth(500);
-            sellerTable.addCell(labelCell("Seller Name:", unicodeFont));
-            sellerTable.addCell(valueCell(auction.getSeller().getUser().getUsername(), unicodeFont));
-            sellerTable.addCell(labelCell("Seller Email:", unicodeFont));
-            sellerTable.addCell(valueCell(auction.getSeller().getUser().getEmail(), unicodeFont));
-            sellerTable.addCell(labelCell("Iban:", unicodeFont));
-            sellerTable.addCell(valueCell(auction.getAuctionHouse() != null && auction.getAuctionHouse().getIban() != null ?
-                    auction.getAuctionHouse().getIban() : "Not provided", unicodeFont));
+            addTableRow(sellerTable, renderText(texts.sellerNameLabel(), arabic), auction.getSeller().getUser().getUsername(), unicodeFont, arabic);
+            addTableRow(sellerTable, renderText(texts.sellerEmailLabel(), arabic), auction.getSeller().getUser().getEmail(), unicodeFont, arabic);
+            addTableRow(sellerTable, renderText(texts.ibanLabel(), arabic), auction.getAuctionHouse() != null && auction.getAuctionHouse().getIban() != null ?
+                    auction.getAuctionHouse().getIban() : fallback(arabic, "Not provided", "غير متوفر"), unicodeFont, arabic);
             doc.add(sellerTable);
 
             // Buyer Details
-            Paragraph buyerTitle = new Paragraph("BUYER INFORMATION")
-                    .setBold()
-                    .setFontSize(14)
-                    .setMarginTop(20)
-                    .setMarginBottom(10);
+            Paragraph buyerTitle = sectionTitle(renderText(texts.buyerInformationTitle(), arabic), arabic);
             doc.add(buyerTitle);
 
             Table buyerTable = new Table(2).setWidth(500);
-            buyerTable.addCell(labelCell("Buyer Name:", unicodeFont));
-            buyerTable.addCell(valueCell(buyer.getUser().getUsername(), unicodeFont));
-            buyerTable.addCell(labelCell("Buyer Email:", unicodeFont));
-            buyerTable.addCell(valueCell(buyer.getUser().getEmail(), unicodeFont));
-            buyerTable.addCell(labelCell("Phone:", unicodeFont));
-            buyerTable.addCell(valueCell(buyer.getUser().getPhoneNumber() != null ?
-                    buyer.getUser().getPhoneNumber() : "Not provided", unicodeFont));
+            addTableRow(buyerTable, renderText(texts.buyerNameLabel(), arabic), buyer.getUser().getUsername(), unicodeFont, arabic);
+            addTableRow(buyerTable, renderText(texts.buyerEmailLabel(), arabic), buyer.getUser().getEmail(), unicodeFont, arabic);
+            addTableRow(buyerTable, renderText(texts.phoneLabel(), arabic), buyer.getUser().getPhoneNumber() != null ?
+                    buyer.getUser().getPhoneNumber() : fallback(arabic, "Not provided", "غير متوفر"), unicodeFont, arabic);
             doc.add(buyerTable);
 
             // Footer
@@ -192,7 +173,7 @@ public class ReceiptService {
                     .setTextAlignment(TextAlignment.CENTER)
                     .setMarginTop(20)
                     .setMarginBottom(10));
-            Paragraph footer = new Paragraph("Thank you for using Mazadat! This is an official receipt.")
+            Paragraph footer = new Paragraph(renderText(texts.footer(), arabic))
                     .setTextAlignment(TextAlignment.CENTER)
                     .setFontSize(10);
             doc.add(footer);
@@ -206,11 +187,36 @@ public class ReceiptService {
         }
     }
 
-    private Paragraph labelCell(String text, PdfFont font) {
+    ReceiptTexts resolveTexts(String language) {
+        return isArabicLanguage(language) ? ReceiptTexts.arabic() : ReceiptTexts.english();
+    }
+
+    private Paragraph labelCell(String text, PdfFont font, boolean arabic) {
         return new Paragraph(text)
                 .setFont(font)
-                .setBaseDirection(BaseDirection.LEFT_TO_RIGHT)
-                .setTextAlignment(TextAlignment.LEFT);
+                .setBaseDirection(arabic ? BaseDirection.RIGHT_TO_LEFT : BaseDirection.LEFT_TO_RIGHT)
+                .setTextAlignment(arabic ? TextAlignment.RIGHT : TextAlignment.LEFT);
+    }
+
+    private Paragraph sectionTitle(String text, boolean arabic) {
+        return new Paragraph(text)
+                .setBold()
+                .setFontSize(14)
+                .setMarginTop(20)
+                .setMarginBottom(10)
+                .setBaseDirection(arabic ? BaseDirection.RIGHT_TO_LEFT : BaseDirection.LEFT_TO_RIGHT)
+                .setTextAlignment(arabic ? TextAlignment.RIGHT : TextAlignment.LEFT);
+    }
+
+    private void addTableRow(Table table, String label, String value, PdfFont font, boolean arabic) {
+        if (arabic) {
+            table.addCell(valueCell(value, font));
+            table.addCell(labelCell(label, font, true));
+            return;
+        }
+
+        table.addCell(labelCell(label, font, false));
+        table.addCell(valueCell(value, font));
     }
 
     private Paragraph valueCell(String text, PdfFont font) {
@@ -245,6 +251,23 @@ public class ReceiptService {
             // Safe fallback: keep original text
             return text;
         }
+    }
+
+    private String renderText(String text, boolean arabic) {
+        return arabic ? prepareArabicForPdf(text) : text;
+    }
+
+    private String fallback(boolean arabic, String english, String arabicText) {
+        return arabic ? arabicText : english;
+    }
+
+    private boolean isArabicLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            return false;
+        }
+
+        String normalized = language.toLowerCase(Locale.ROOT).trim();
+        return normalized.startsWith("ar");
     }
 
     private boolean containsArabic(String text) {
@@ -297,3 +320,68 @@ public class ReceiptService {
         return buffer.toByteArray();
     }
 }
+
+record ReceiptTexts(
+        String title,
+        String receiptGeneratedLabel,
+        String auctionDetailsTitle,
+        String auctionIdLabel,
+        String auctionNameLabel,
+        String auctionDescriptionLabel,
+        String sellingPriceLabel,
+        String auctionEndDateLabel,
+        String sellerInformationTitle,
+        String sellerNameLabel,
+        String sellerEmailLabel,
+        String ibanLabel,
+        String buyerInformationTitle,
+        String buyerNameLabel,
+        String buyerEmailLabel,
+        String phoneLabel,
+        String footer
+) {
+    static ReceiptTexts english() {
+        return new ReceiptTexts(
+                "MAZADAT AUCTION RECEIPT",
+                "Receipt Generated:",
+                "AUCTION DETAILS",
+                "Auction ID:",
+                "Auction Name:",
+                "Auction Description:",
+                "Selling Price:",
+                "Auction End Date:",
+                "SELLER INFORMATION",
+                "Seller Name:",
+                "Seller Email:",
+                "IBAN:",
+                "BUYER INFORMATION",
+                "Buyer Name:",
+                "Buyer Email:",
+                "Phone:",
+                "Thank you for using Mazadat! This is an official receipt."
+        );
+    }
+
+    static ReceiptTexts arabic() {
+        return new ReceiptTexts(
+                "إيصال مزاد مزادات",
+                "تم إنشاء الإيصال:",
+                "تفاصيل المزاد",
+                "رقم المزاد:",
+                "اسم المزاد:",
+                "وصف المزاد:",
+                "سعر البيع:",
+                "تاريخ انتهاء المزاد:",
+                "معلومات البائع",
+                "اسم البائع:",
+                "البريد الإلكتروني للبائع:",
+                "رقم الآيبان:",
+                "معلومات المشتري",
+                "اسم المشتري:",
+                "البريد الإلكتروني للمشتري:",
+                "رقم الهاتف:",
+                "شكراً لاستخدام مزادات! هذا إيصال رسمي."
+        );
+    }
+}
+

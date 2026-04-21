@@ -7,7 +7,8 @@ import PlaceBidModal from '@/components/auction/PlaceBidModal';
 import AutoBidModal from '@/components/auction/AutoBidModal';
 import FeatureAuctionModal from '@/components/auction/FeatureAuctionModal';
 import { useAutoBid } from '@/hooks/useAutoBid';
-import { placeBid, generateReceipt } from '@/services/bidService';
+import { placeBid } from '@/services/bidService';
+import { generateReceipt } from '@/services/receiptService';
 import { getAuctionById } from '@/services/auctionService';
 import { resolveImageUrl } from '@/services/imageService';
 import { featureAuction } from '@/services/featuredService';
@@ -144,7 +145,7 @@ export default function AuctionDetailPage({ currentUser }) {
 
         setBidLoading(true);
         try {
-            await generateReceipt(auction.id);
+            await generateReceipt(auction.id, i18n.language);
             toast.success(isAr ? 'تم تحميل الإيصال بنجاح' : 'Receipt downloaded successfully!');
         } catch (err) {
             toast.error(err.message || (isAr ? 'فشل تحميل الإيصال' : 'Failed to generate receipt'));

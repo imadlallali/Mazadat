@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trophy, ArrowLeft } from 'lucide-react';
 import { getBuyerBids, getWonBids } from '@/services/bidService';
-import { generateReceipt } from '@/services/bidService';
+import { generateReceipt } from '@/services/receiptService';
 import { toast } from 'sonner';
 import { resolveTextAlignmentClass, resolveTextDirection } from '@/lib/textDirection';
 import TopNavigationBar from '../components/TopNavigationBar';
@@ -80,7 +80,7 @@ export default function MyBidsPage({ onBack, currentUser, onShowWatchlist }) {
 
         setGeneratingReceipt(auctionId);
         try {
-            await generateReceipt(auctionId);
+            await generateReceipt(auctionId, i18n.language);
             setGeneratedReceipts(prev => new Set([...prev, auctionId]));
             toast.success(isAr ? 'تم تحميل الإيصال بنجاح' : 'Receipt downloaded successfully!');
         } catch (err) {
