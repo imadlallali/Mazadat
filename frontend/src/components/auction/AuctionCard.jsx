@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Star, Trophy } from 'lucide-react';
 import CountdownTimer from './CountdownTimer';
 import PlaceBidModal from './PlaceBidModal';
-import { placeBid, generateReceipt } from '@/services/bidService';
+import { placeBid } from '@/services/bidService';
+import { generateReceipt } from '@/services/receiptService';
 import { deleteAuction } from '@/services/auctionService';
 import { resolveImageUrl } from '@/services/imageService';
 import { resolveTextAlignmentClass, resolveTextDirection } from '@/lib/textDirection';
@@ -96,7 +97,7 @@ export default function AuctionCard({ auction, currentUser, onActionComplete, is
 
         setLoading(true);
         try {
-            await generateReceipt(auction.id);
+            await generateReceipt(auction.id, i18n.language);
             toast.success(isAr ? 'تم تحميل الإيصال بنجاح' : 'Receipt downloaded successfully!');
         } catch (err) {
             toast.error(err.message || (isAr ? 'فشل تحميل الإيصال' : 'Failed to generate receipt'));

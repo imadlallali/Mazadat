@@ -18,8 +18,12 @@ public class ReceiptController {
     private final ReceiptService receiptService;
 
     @PostMapping("/generate/{auctionId}")
-    public ResponseEntity<?> generateReceipt(@PathVariable Integer auctionId, @AuthenticationPrincipal User user){
-        byte[] pdfBytes = receiptService.generateReceiptPDF(auctionId, user.getId());
+    public ResponseEntity<?> generateReceipt(
+            @PathVariable Integer auctionId,
+            @AuthenticationPrincipal User user,
+            @RequestHeader(value = "X-Language", required = false) String language,
+            @RequestHeader(value = "Accept-Language", required = false) String acceptLanguage){
+        byte[] pdfBytes = receiptService.generateReceiptPDF(auctionId, user.getId(), language != null ? language : acceptLanguage);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
