@@ -48,15 +48,6 @@
             </PendingDiffInfo>
           </value>
         </entry>
-        <entry key="$PROJECT_DIR$/frontend/docker-entrypoint.sh">
-          <value>
-            <PendingDiffInfo>
-              <option name="filePath" value="$PROJECT_DIR$/frontend/docker-entrypoint.sh" />
-              <option name="originalContent" value="#!/bin/sh&#10;set -e&#10;&#10;# Get environment variables or use defaults&#10;API_URL=${VITE_API_URL:-http://localhost:8080/api/v1}&#10;IMAGE_URL=${VITE_IMAGE_BASE_URL:-http://localhost:8080}&#10;&#10;echo &quot;Frontend Configuration:&quot;&#10;echo &quot;API URL: $API_URL&quot;&#10;echo &quot;Image URL: $IMAGE_URL&quot;&#10;&#10;# Create a config file that the frontend can read&#10;cat &gt; /usr/share/nginx/html/config.json &lt;&lt;EOF&#10;{&#10;  &quot;API_URL&quot;: &quot;$API_URL&quot;,&#10;  &quot;IMAGE_BASE_URL&quot;: &quot;$IMAGE_URL&quot;&#10;}&#10;EOF&#10;&#10;echo &quot;Config file created at /usr/share/nginx/html/config.json&quot;&#10;&#10;# Execute the main command&#10;exec &quot;$@&quot;&#10;&#10;" />
-              <option name="updatedContent" value="#!/bin/sh&#10;&#10;# Get environment variables or use defaults&#10;API_URL=&quot;${VITE_API_URL:-http://localhost:8080/api/v1}&quot;&#10;IMAGE_URL=&quot;${VITE_IMAGE_BASE_URL:-http://localhost:8080}&quot;&#10;&#10;echo &quot;======================================&quot;&#10;echo &quot;Frontend Configuration&quot;&#10;echo &quot;======================================&quot;&#10;echo &quot;API URL: $API_URL&quot;&#10;echo &quot;Image URL: $IMAGE_URL&quot;&#10;echo &quot;======================================&quot;&#10;&#10;# Create a config file that the frontend can read&#10;cat &gt; /usr/share/nginx/html/config.json &lt;&lt;EOF&#10;{&#10;  &quot;API_URL&quot;: &quot;$API_URL&quot;,&#10;  &quot;IMAGE_BASE_URL&quot;: &quot;$IMAGE_URL&quot;&#10;}&#10;EOF&#10;&#10;if [ -f /usr/share/nginx/html/config.json ]; then&#10;    echo &quot;✓ Config file created successfully&quot;&#10;    cat /usr/share/nginx/html/config.json&#10;else&#10;    echo &quot;✗ ERROR: Failed to create config file&quot;&#10;    exit 1&#10;fi&#10;&#10;echo &quot;======================================&quot;&#10;echo &quot;Starting nginx...&quot;&#10;echo &quot;======================================&quot;&#10;&#10;# Execute the main command&#10;exec &quot;$@&quot;&#10;&#10;" />
-            </PendingDiffInfo>
-          </value>
-        </entry>
       </map>
     </option>
   </component>

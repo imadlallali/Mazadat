@@ -12,6 +12,7 @@ echo "Image URL: $IMAGE_URL"
 echo "======================================"
 
 # Create a config file that the frontend can read
+mkdir -p /usr/share/nginx/html
 cat > /usr/share/nginx/html/config.json <<EOF
 {
   "API_URL": "$API_URL",
@@ -27,10 +28,31 @@ else
     exit 1
 fi
 
+# Verify dist files exist
+if [ ! -f /usr/share/nginx/html/index.html ]; then
+    echo "✗ ERROR: index.html not found in /usr/share/nginx/html"
+    echo "Available files:"
+    ls -la /usr/share/nginx/html/
+    exit 1
+else
+    echo "✓ index.html found"
+fi
+
+# Test nginx configuration
+echo "======================================"
+echo "Testing nginx configuration..."
+echo "======================================"
+nginx -t
+if [ $? -ne 0 ]; then
+    echo "✗ ERROR: Nginx configuration test failed"
+    exit 1
+fi
+echo "✓ Nginx configuration is valid"
+
 echo "======================================"
 echo "Starting nginx..."
 echo "======================================"
 
-# Execute the main command
-exec "$@"
+# Execute nginx in foreground
+exec nginx -g "daemon off;"
 
